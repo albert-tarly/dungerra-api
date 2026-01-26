@@ -27,3 +27,11 @@ func (v *Vector2) RotateAroundPoint(center *Vector2, angle float64) bool {
 
 	return true
 }
+
+func (v *Vector2) Clone() *Vector2 {
+	return &Vector2{X: v.X, Y: v.Y}
+}
+
+func (v *Vector2) Equal(other *Vector2) bool {
+	return v.X == other.X && v.Y == other.Y
+}

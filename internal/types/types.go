@@ -65,6 +65,12 @@ const (
 	EnemyTypeSoldier    = "pr"
 	EnemyTypeLieutenant = "lt"
 	EnemyTypeTower      = "tw"
+	EnemyTypeSniper     = "sn"
+)
+
+const (
+	RayTypeLaser     = "laser"
+	RayTypeProjector = "projector"
 )
 
 var WeaponTypeByInventoryItem = map[InventoryItemID]string{
@@ -150,22 +156,32 @@ var ShopNames = []string{
 	"The Battle Bodega",
 }
 
+var EnemySpeedByType = map[string]float64{
+	EnemyTypeSoldier:    config.EnemySoldierSpeed,
+	EnemyTypeLieutenant: config.EnemySoldierSpeed,
+	EnemyTypeTower:      0.0,
+	EnemyTypeSniper:     config.EnemySniperSpeed,
+}
+
 var EnemySizeByType = map[string]float64{
 	EnemyTypeSoldier:    config.EnemySoldierSize,
 	EnemyTypeLieutenant: config.EnemySoldierSize,
 	EnemyTypeTower:      config.EnemyTowerSize,
+	EnemyTypeSniper:     config.EnemySoldierSize,
 }
 
 var EnemyLivesByType = map[string]float32{
 	EnemyTypeSoldier:    config.EnemySoldierLives,
 	EnemyTypeLieutenant: config.EnemyLieutenantLives,
 	EnemyTypeTower:      config.EnemyTowerLives,
+	EnemyTypeSniper:     config.EnemySniperLives,
 }
 
 var EnemyShootDelayByType = map[string]float64{
 	EnemyTypeSoldier:    config.EnemySoldierShootDelay,
 	EnemyTypeLieutenant: config.EnemyLieutenantShootDelay,
 	EnemyTypeTower:      config.EnemyTowerShootDelay,
+	EnemyTypeSniper:     config.EnemySniperShootDelay,
 }
 
 var EnemyBulletSpeedByType = map[string]float64{
@@ -178,10 +194,12 @@ var EnemyRewardByType = map[string]float64{
 	EnemyTypeSoldier:    config.EnemySoldierReward,
 	EnemyTypeLieutenant: config.EnemyLieutenantReward,
 	EnemyTypeTower:      config.EnemyTowerReward,
+	EnemyTypeSniper:     config.EnemySniperReward,
 }
 
 var EnemyGunEndOffestByType = map[string]*Vector2{
 	EnemyTypeSoldier:    {X: config.EnemySoldierGunEndOffsetX, Y: config.EnemySoldierGunEndOffsetY},
 	EnemyTypeLieutenant: {X: config.EnemySoldierGunEndOffsetX, Y: config.EnemySoldierGunEndOffsetY},
+	EnemyTypeSniper:     {X: config.EnemySniperGunEndOffsetX, Y: config.EnemySniperGunEndOffsetY},
 	EnemyTypeTower:      {X: config.EnemyTowerGunEndOffsetX, Y: config.EnemyTowerGunEndOffsetY},
 }

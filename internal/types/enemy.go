@@ -11,15 +11,17 @@ import (
 // Enemy represents an enemy in the game
 type Enemy struct {
 	ScreenObject
-	Type       string    `json:"type"`
-	Rotation   float64   `json:"rotation"` // rotation in degrees
-	Lives      float32   `json:"lives"`
-	WallID     string    `json:"wallId"`
-	Direction  int8      `json:"-"` // patrol direction: 1 or -1
-	ShootDelay float64   `json:"-"`
-	LastShot   time.Time `json:"-"`
-	IsAlive    bool      `json:"isAlive"`
-	DeadTimer  float64   `json:"-"`
+	Type                string    `json:"type"`
+	Rotation            float64   `json:"rotation"` // rotation in degrees
+	Lives               float32   `json:"lives"`
+	WallID              string    `json:"wallId"`
+	IsAlive             bool      `json:"isAlive"`
+	DeadTimer           float64   `json:"-"`
+	Direction           int8      `json:"-"` // patrol direction: 1 or -1
+	ShootDelay          float64   `json:"-"`
+	LastShot            time.Time `json:"-"`
+	LastAimedAtPlayerID string    `json:"-"`
+	LastShotAtPlayerID  string    `json:"-"`
 }
 
 func EnemiesEqual(a, b *Enemy) bool {
@@ -45,7 +47,7 @@ func (e *Enemy) DistanceToPoint(point *Vector2) float64 {
 	return math.Sqrt(dx*dx + dy*dy)
 }
 
-func (e *Enemy) getGunPoint() *Vector2 {
+func (e *Enemy) GetGunPoint() *Vector2 {
 	gunOffset, exists := EnemyGunEndOffestByType[e.Type]
 	if !exists {
 		gunOffset = &Vector2{}
@@ -56,8 +58,8 @@ func (e *Enemy) getGunPoint() *Vector2 {
 	return enemyGunPoint
 }
 
-func (e *Enemy) Shoot() *Bullet {
-	enemyGunPoint := e.getGunPoint()
+func (e *Enemy) ShootAt(target *Vector2) *Bullet {
+	enemyGunPoint := e.GetGunPoint()
 	rotationRad := e.Rotation * math.Pi / 180.0
 	bulletSpeed, exists := EnemyBulletSpeedByType[e.Type]
 	if !exists {
@@ -68,6 +70,25 @@ func (e *Enemy) Shoot() *Bullet {
 	if e.Type == EnemyTypeTower {
 		damage = config.RocketLauncherDamage
 		weaponType = WeaponTypeRocketLauncher
+		bulletSpeed = config.RocketLauncherBulletSpeed
+	}
+
+	velocity := &Vector2{
+		X: -math.Sin(rotationRad) * bulletSpeed,
+		Y: math.Cos(rotationRad) * bulletSpeed,
+	}
+
+	if e.Type == EnemyTypeSniper {
+		weaponType = WeaponTypeRailgun
+		velocity.X = (target.X - enemyGunPoint.X)
+		velocity.Y = (target.Y - enemyGunPoint.Y)
+	}
+
+	isActive := weaponType != WeaponTypeRailgun
+
+	deletedAt := time.Time{}
+	if !isActive {
+		deletedAt = time.Now()
 	}
 
 	return &Bullet{
@@ -75,16 +96,14 @@ func (e *Enemy) Shoot() *Bullet {
 			ID:       uuid.New().String(),
 			Position: enemyGunPoint,
 		},
-		Velocity: &Vector2{
-			X: -math.Sin(rotationRad) * bulletSpeed,
-			Y: math.Cos(rotationRad) * bulletSpeed,
-		},
+		Velocity:  velocity,
 		OwnerID:   e.ID,
 		IsEnemy:   true,
 		EnemyType: e.Type,
 
 		SpawnTime: time.Now(),
-		IsActive:  true,
+		IsActive:  weaponType != WeaponTypeRailgun,
+		DeletedAt: deletedAt,
 
 		WeaponType: weaponType,
 		Damage:     float32(damage),

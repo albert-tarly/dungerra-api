@@ -9,7 +9,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-const GameVersion = "1.3.0"
+const GameVersion = "1.4.0"
 
 type Config struct {
 	MongoDBURL               string
@@ -102,8 +102,8 @@ const (
 	PlayerRadius        = PlayerSize / 2
 	PlayerGunEndOffsetX = -10.0
 	PlayerGunEndOffsetY = 20.0
-	PlayerTorchOffsetX  = 7.0
-	PlayerTorchOffsetY  = 11.0
+	PlayerTorchOffsetX  = 10.0
+	PlayerTorchOffsetY  = 18.0
 
 	PlayerRotationSpeed            = 180.0 // Degrees per second
 	PlayerInvulnerabilityTime      = 1.0   // Seconds
@@ -146,7 +146,8 @@ const (
 	EnemyDeathTraceTime      = 5.0  // Seconds
 	EnemyTowerDeathTraceTime = 30.0 // Seconds
 	EnemyLieutenantChance    = 0.15 // 15% chance to spawn lieutenant instead of soldier
-	EnemySpawnChancePerWall  = 0.8  // 80% chance to spawn enemy for each wall
+	EnemySniperChance        = 0.05 // 5% chance to spawn sniper instead of soldier
+	EnemySpawnChancePerWall  = 0.9  // 90% chance to spawn enemy for each wall
 
 	// Enemy soldier constants
 	EnemySoldierSpeed         = 120.0 // Units per second
@@ -168,6 +169,17 @@ const (
 	EnemyLieutenantReward           = 50.0 // Money reward
 	EnemyLieutenantDropChance       = 0.5  // 50% chance to drop bonus
 	EnemyLieutenantDropChanceWeapon = 0.3  // 30% chance to drop weapon if dropping bonus
+
+	// Enemy sniper constants
+	EnemySniperSpeed             = 20.0 // Units per second
+	EnemySniperLives             = 2.0
+	EnemySniperShootDelay        = 2.5   // Seconds
+	EnemySniperReward            = 100.0 // Money reward
+	EnemySniperDropChanceAmmo    = 0.5   // 50% chance to drop ammo
+	EnemySniperDropChanceWeapon  = 0.5   // 50% chance to drop weapon
+	EnemySniperDropChanceGoogles = 0.75  // 75% chance to drop goggles
+	EnemySniperGunEndOffsetX     = 0.0
+	EnemySniperGunEndOffsetY     = 33.0
 
 	// Enemy tower constants
 	EnemyTowerLives       = 30.0

@@ -122,10 +122,7 @@ func (p *Player) DetectionParams() (*Vector2, float64) {
 		return p.Position, config.NightVisionDetectionRadius
 	}
 
-	playerTorchPoint := &Vector2{X: p.Position.X + config.PlayerTorchOffsetX, Y: p.Position.Y + config.PlayerTorchOffsetY}
-	playerTorchPoint.RotateAroundPoint(p.Position, p.Rotation)
-
-	return playerTorchPoint, config.TorchRadius
+	return p.Position, config.TorchRadius
 }
 
 func (p *Player) IsVisibleToPlayer(player *Player) bool {

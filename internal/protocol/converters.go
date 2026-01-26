@@ -305,6 +305,43 @@ func ToProtoShopUpdate(prev, curr *types.Shop) *ShopUpdate {
 	return update
 }
 
+func ToProtoRay(r *types.Ray) *Ray {
+	if r == nil {
+		return nil
+	}
+	return &Ray{
+		Id:          r.ID,
+		Position:    ToProtoVector2(r.Position),
+		EndPosition: ToProtoVector2(r.EndPosition),
+		OwnerId:     r.OwnerID,
+		Type:        r.Type,
+	}
+}
+
+func ToProtoRayUpdate(prev, curr *types.Ray) *RayUpdate {
+	if prev == nil || curr == nil || prev.Equal(curr) {
+		return nil
+	}
+
+	update := &RayUpdate{}
+
+	if !prev.Position.Equal(curr.Position) {
+		update.Position = &Vector2{
+			X: curr.Position.X,
+			Y: curr.Position.Y,
+		}
+	}
+
+	if !prev.EndPosition.Equal(curr.EndPosition) {
+		update.EndPosition = &Vector2{
+			X: curr.EndPosition.X,
+			Y: curr.EndPosition.Y,
+		}
+	}
+
+	return update
+}
+
 // FromProtoInput converts proto InputMessage to types.InputPayload
 func FromProtoInput(input *InputMessage) types.InputPayload {
 	if input == nil {
@@ -328,6 +365,7 @@ func IsGameStateDeltaEmpty(delta *GameStateDeltaMessage) bool {
 		len(delta.AddedEnemies) == 0 && len(delta.UpdatedEnemies) == 0 && len(delta.RemovedEnemies) == 0 &&
 		len(delta.AddedBonuses) == 0 && len(delta.UpdatedBonuses) == 0 && len(delta.RemovedBonuses) == 0 &&
 		len(delta.AddedShops) == 0 && len(delta.UpdatedShops) == 0 && len(delta.RemovedShops) == 0 &&
+		len(delta.AddedRays) == 0 && len(delta.UpdatedRays) == 0 && len(delta.RemovedRays) == 0 &&
 		len(delta.AddedPlayersShops) == 0 && len(delta.RemovedPlayersShops) == 0 &&
 		len(delta.UpdatedOtherPlayerPositions) == 0 && len(delta.RemovedOtherPlayerPositions) == 0
 }

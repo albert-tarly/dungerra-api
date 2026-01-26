@@ -97,6 +97,14 @@ message Shop {
   string name = 4;
 }
 
+message Ray {
+  string id = 1;
+  Vector2 position = 2;
+  Vector2 end_position = 3;
+  string owner_id = 4;
+  string type = 5;
+}
+
 message InputMessage {
   bool forward = 1;
   bool backward = 2;
@@ -132,6 +140,11 @@ message ScoreUpdate {
   int32 score = 1;
   int32 money = 2;
   int32 kills = 3;
+}
+
+message RayUpdate {
+  Vector2 position = 1;
+  Vector2 end_position = 2;
 }
 
 message PlayerBulletsUpdate {
@@ -188,6 +201,10 @@ message GameStateDeltaMessage {
   map<string, Shop> added_shops = 15;
   map<string, ShopUpdate> updated_shops = 16;
   repeated string removed_shops = 17; 
+
+  map<string, Ray> added_rays = 23;
+  map<string, RayUpdate> updated_rays = 25;
+  repeated string removed_rays = 24;
 
   repeated string added_players_shops = 18;
   repeated string removed_players_shops = 19;

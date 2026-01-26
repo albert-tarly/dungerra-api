@@ -25,6 +25,7 @@ type EngineGameState struct {
 	enemiesByChunk map[string]map[string]*types.Enemy
 	bonuses        map[string]*types.Bonus
 	shopsByChunk   map[string]map[string]*types.Shop
+	rays           map[string]*types.Ray
 }
 
 type UpdateTimeStats struct {
@@ -90,6 +91,7 @@ func NewEngine(sessionID string) *Engine {
 			enemiesByChunk: make(map[string]map[string]*types.Enemy),
 			bonuses:        make(map[string]*types.Bonus),
 			shopsByChunk:   make(map[string]map[string]*types.Shop),
+			rays:           make(map[string]*types.Ray),
 		},
 		playerInputState:        make(map[string]*types.InputPayload),
 		itemsToUseByPlayer:      make(map[string][]types.InventoryItemID),
@@ -425,6 +427,11 @@ func (e *Engine) createEnemyForWall(wall *types.Wall) *types.Enemy {
 		enemyLives = config.EnemyLieutenantLives
 	}
 
+	if rand.Float64() < config.EnemySniperChance {
+		enemyType = types.EnemyTypeSniper
+		enemyLives = config.EnemySniperLives
+	}
+
 	// Spawn enemy on one side of the wall
 	var x, y float64
 	wallSide := 1.0
@@ -434,9 +441,9 @@ func (e *Engine) createEnemyForWall(wall *types.Wall) *types.Enemy {
 
 	if wall.Orientation == "vertical" {
 		x = wall.Position.X - wallSide*(wall.Width/2+enemySize/2)
-		y = wall.Position.Y
+		y = wall.Position.Y + wall.Height/2
 	} else {
-		x = wall.Position.X
+		x = wall.Position.X + wall.Width/2
 		y = wall.Position.Y - wallSide*(wall.Height/2+enemySize/2)
 	}
 
@@ -606,6 +613,14 @@ func (e *Engine) updatePreviousState(playerID string) {
 				prevState.bonuses[id] = bonus.Clone()
 				break
 			}
+		}
+	}
+
+	prevState.rays = make(map[string]*types.Ray)
+	for _, ray := range e.state.rays {
+		// Rays are always visible to players so no need to check nearby players
+		if ray.IsVisibleToPlayer(player) {
+			prevState.rays[ray.ID] = ray.Clone()
 		}
 	}
 
@@ -872,17 +887,16 @@ func (e *Engine) Update() {
 			checkedEnemies++
 
 			if !enemy.IsAlive {
+				// Delete enemy rays
+				delete(e.state.rays, enemy.ID)
+
+				// Handle dead enemy timer
 				enemy.DeadTimer -= deltaTime
 				if enemy.DeadTimer <= 0 {
 					// Remove completely dead enemies
 					delete(e.state.enemiesByChunk[enemyChunkKey], enemy.ID)
 				}
 				continue
-			}
-
-			// Update shoot delay
-			if enemy.ShootDelay > 0 {
-				enemy.ShootDelay -= deltaTime
 			}
 
 			// Find closest player to track
@@ -897,6 +911,10 @@ func (e *Engine) Update() {
 				}
 
 				detectionPoint, detectionDistance := player.DetectionParams()
+				if enemy.Type == types.EnemyTypeSniper {
+					// Snipers have extended detection distance
+					detectionDistance = config.SightRadius
+				}
 
 				dist := enemy.DistanceToPoint(detectionPoint)
 				if dist < config.SightRadius {
@@ -928,6 +946,28 @@ func (e *Engine) Update() {
 									break
 								}
 							}
+							for _, otherEnemy := range e.state.enemiesByChunk[neighborChunkKey] {
+								if otherEnemy.ID == enemy.ID || !otherEnemy.IsAlive {
+									continue
+								}
+
+								distanceToEnemy := enemy.DistanceToPoint(otherEnemy.Position)
+								if distanceToEnemy > 2*otherEnemy.Size()+detectionDistance {
+									continue // Enemy is beyond player
+								}
+
+								size := otherEnemy.Size()
+
+								if utils.CheckLineRectCollision(
+									enemy.Position.X, enemy.Position.Y,
+									detectionPoint.X, detectionPoint.Y,
+									otherEnemy.Position.X-size/2,
+									otherEnemy.Position.Y-size/2,
+									size, size) {
+									lineClear = false
+									break
+								}
+							}
 						}
 					}
 					if lineClear {
@@ -938,6 +978,12 @@ func (e *Engine) Update() {
 						}
 					}
 				}
+			}
+
+			if !canSee && enemy.Type == types.EnemyTypeSniper {
+				enemy.LastAimedAtPlayerID = ""
+				enemy.LastShotAtPlayerID = ""
+				delete(e.state.rays, enemy.ID)
 			}
 
 			if !hasPlayersInSight {
@@ -981,10 +1027,48 @@ func (e *Engine) Update() {
 					enemy.Rotation = desiredRotation
 				}
 
+				if enemy.Type == types.EnemyTypeSniper {
+					if closestVisiblePlayer.ID != enemy.LastAimedAtPlayerID {
+						// Reset shoot delay when switching targets
+						enemy.ShootDelay = config.EnemySniperShootDelay
+						enemy.LastShotAtPlayerID = ""
+						enemy.LastAimedAtPlayerID = closestVisiblePlayer.ID
+					}
+
+					ray, exists := e.state.rays[enemy.ID]
+					if exists {
+						// Update existing laser pointer
+						ray.EndPosition = closestVisiblePlayer.Position.Clone()
+						ray.ScreenObject.Position = enemy.GetGunPoint()
+					} else {
+						// Add a laser pointer effect towards the player
+						ray := &types.Ray{
+							ScreenObject: types.ScreenObject{
+								ID:       uuid.New().String(),
+								Position: enemy.GetGunPoint(),
+							},
+							EndPosition: closestVisiblePlayer.Position.Clone(),
+							OwnerID:     enemy.ID,
+							Type:        types.RayTypeLaser,
+						}
+
+						e.state.rays[enemy.ID] = ray
+					}
+				}
+
+				// Update shoot delay
+				if enemy.ShootDelay > 0 {
+					enemy.ShootDelay -= deltaTime
+				}
+
 				// Shoot at player
 				if enemy.ShootDelay <= 0 && enemy.Rotation == desiredRotation {
-					bullet := enemy.Shoot()
+					bullet := enemy.ShootAt(closestVisiblePlayer.Position)
 					e.state.bullets[bullet.ID] = bullet
+					if enemy.Type == types.EnemyTypeSniper {
+						e.applyBulletDamage(bullet, &types.Vector2{X: bullet.Position.X + bullet.Velocity.X, Y: bullet.Position.Y + bullet.Velocity.Y})
+					}
+
 					enemy.ShootDelay = types.EnemyShootDelayByType[enemy.Type]
 				}
 			}
@@ -1734,6 +1818,9 @@ func (e *Engine) GetGameStateDeltaForPlayer(playerID string) *protocol.GameState
 		AddedShops:   make(map[string]*protocol.Shop),
 		UpdatedShops: make(map[string]*protocol.ShopUpdate),
 
+		AddedRays:   make(map[string]*protocol.Ray),
+		UpdatedRays: make(map[string]*protocol.RayUpdate),
+
 		UpdatedOtherPlayerPositions: make(map[string]*protocol.Vector2),
 
 		Timestamp: time.Now().UnixMilli(),
@@ -1999,6 +2086,26 @@ func (e *Engine) GetGameStateDeltaForPlayer(playerID string) *protocol.GameState
 
 	for id := range prevState.bonuses {
 		delta.RemovedBonuses = append(delta.RemovedBonuses, id)
+	}
+
+	for _, ray := range e.state.rays {
+		prev, prevExists := prevState.rays[ray.ID]
+		if !prevExists {
+			delta.AddedRays[ray.ID] = protocol.ToProtoRay(ray)
+		} else {
+			if ray.IsVisibleToPlayer(player) {
+				if !prev.Equal(ray) {
+					delta.UpdatedRays[ray.ID] = protocol.ToProtoRayUpdate(prev, ray)
+				}
+			} else {
+				delta.RemovedRays = append(delta.RemovedRays, ray.ID)
+			}
+			delete(prevState.rays, ray.ID)
+		}
+	}
+
+	for id := range prevState.rays {
+		delta.RemovedRays = append(delta.RemovedRays, id)
 	}
 
 	if e.debugMode {

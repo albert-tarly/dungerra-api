@@ -274,6 +274,31 @@ export interface Shop {
     name: string;
 }
 /**
+ * @generated from protobuf message protocol.Ray
+ */
+export interface Ray {
+    /**
+     * @generated from protobuf field: string id = 1
+     */
+    id: string;
+    /**
+     * @generated from protobuf field: protocol.Vector2 position = 2
+     */
+    position?: Vector2;
+    /**
+     * @generated from protobuf field: protocol.Vector2 end_position = 3
+     */
+    endPosition?: Vector2;
+    /**
+     * @generated from protobuf field: string owner_id = 4
+     */
+    ownerId: string;
+    /**
+     * @generated from protobuf field: string type = 5
+     */
+    type: string;
+}
+/**
  * @generated from protobuf message protocol.InputMessage
  */
 export interface InputMessage {
@@ -382,6 +407,19 @@ export interface ScoreUpdate {
      * @generated from protobuf field: int32 kills = 3
      */
     kills: number;
+}
+/**
+ * @generated from protobuf message protocol.RayUpdate
+ */
+export interface RayUpdate {
+    /**
+     * @generated from protobuf field: protocol.Vector2 position = 1
+     */
+    position?: Vector2;
+    /**
+     * @generated from protobuf field: protocol.Vector2 end_position = 2
+     */
+    endPosition?: Vector2;
 }
 /**
  * @generated from protobuf message protocol.PlayerBulletsUpdate
@@ -565,6 +603,22 @@ export interface GameStateDeltaMessage {
      * @generated from protobuf field: repeated string removed_shops = 17
      */
     removedShops: string[];
+    /**
+     * @generated from protobuf field: map<string, protocol.Ray> added_rays = 23
+     */
+    addedRays: {
+        [key: string]: Ray;
+    };
+    /**
+     * @generated from protobuf field: map<string, protocol.RayUpdate> updated_rays = 25
+     */
+    updatedRays: {
+        [key: string]: RayUpdate;
+    };
+    /**
+     * @generated from protobuf field: repeated string removed_rays = 24
+     */
+    removedRays: string[];
     /**
      * @generated from protobuf field: repeated string added_players_shops = 18
      */
@@ -1516,6 +1570,83 @@ class Shop$Type extends MessageType$<Shop> {
  */
 export const Shop = new Shop$Type();
 // @generated message type with reflection information, may provide speed optimized methods
+class Ray$Type extends MessageType$<Ray> {
+    constructor() {
+        super("protocol.Ray", [
+            { no: 1, name: "id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "position", kind: "message", T: () => Vector2 },
+            { no: 3, name: "end_position", kind: "message", T: () => Vector2 },
+            { no: 4, name: "owner_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "type", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<Ray>): Ray {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.id = "";
+        message.ownerId = "";
+        message.type = "";
+        if (value !== undefined)
+            reflectionMergePartial<Ray>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: Ray): Ray {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string id */ 1:
+                    message.id = reader.string();
+                    break;
+                case /* protocol.Vector2 position */ 2:
+                    message.position = Vector2.internalBinaryRead(reader, reader.uint32(), options, message.position);
+                    break;
+                case /* protocol.Vector2 end_position */ 3:
+                    message.endPosition = Vector2.internalBinaryRead(reader, reader.uint32(), options, message.endPosition);
+                    break;
+                case /* string owner_id */ 4:
+                    message.ownerId = reader.string();
+                    break;
+                case /* string type */ 5:
+                    message.type = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: Ray, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string id = 1; */
+        if (message.id !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.id);
+        /* protocol.Vector2 position = 2; */
+        if (message.position)
+            Vector2.internalBinaryWrite(message.position, writer.tag(2, WireType.LengthDelimited).fork(), options).join();
+        /* protocol.Vector2 end_position = 3; */
+        if (message.endPosition)
+            Vector2.internalBinaryWrite(message.endPosition, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        /* string owner_id = 4; */
+        if (message.ownerId !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.ownerId);
+        /* string type = 5; */
+        if (message.type !== "")
+            writer.tag(5, WireType.LengthDelimited).string(message.type);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message protocol.Ray
+ */
+export const Ray = new Ray$Type();
+// @generated message type with reflection information, may provide speed optimized methods
 class InputMessage$Type extends MessageType$<InputMessage> {
     constructor() {
         super("protocol.InputMessage", [
@@ -1934,6 +2065,59 @@ class ScoreUpdate$Type extends MessageType$<ScoreUpdate> {
  */
 export const ScoreUpdate = new ScoreUpdate$Type();
 // @generated message type with reflection information, may provide speed optimized methods
+class RayUpdate$Type extends MessageType$<RayUpdate> {
+    constructor() {
+        super("protocol.RayUpdate", [
+            { no: 1, name: "position", kind: "message", T: () => Vector2 },
+            { no: 2, name: "end_position", kind: "message", T: () => Vector2 }
+        ]);
+    }
+    create(value?: PartialMessage<RayUpdate>): RayUpdate {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        if (value !== undefined)
+            reflectionMergePartial<RayUpdate>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: RayUpdate): RayUpdate {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* protocol.Vector2 position */ 1:
+                    message.position = Vector2.internalBinaryRead(reader, reader.uint32(), options, message.position);
+                    break;
+                case /* protocol.Vector2 end_position */ 2:
+                    message.endPosition = Vector2.internalBinaryRead(reader, reader.uint32(), options, message.endPosition);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: RayUpdate, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* protocol.Vector2 position = 1; */
+        if (message.position)
+            Vector2.internalBinaryWrite(message.position, writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* protocol.Vector2 end_position = 2; */
+        if (message.endPosition)
+            Vector2.internalBinaryWrite(message.endPosition, writer.tag(2, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message protocol.RayUpdate
+ */
+export const RayUpdate = new RayUpdate$Type();
+// @generated message type with reflection information, may provide speed optimized methods
 class PlayerBulletsUpdate$Type extends MessageType$<PlayerBulletsUpdate> {
     constructor() {
         super("protocol.PlayerBulletsUpdate", [
@@ -2320,6 +2504,9 @@ class GameStateDeltaMessage$Type extends MessageType$<GameStateDeltaMessage> {
             { no: 15, name: "added_shops", kind: "map", K: 9 /*ScalarType.STRING*/, V: { kind: "message", T: () => Shop } },
             { no: 16, name: "updated_shops", kind: "map", K: 9 /*ScalarType.STRING*/, V: { kind: "message", T: () => ShopUpdate } },
             { no: 17, name: "removed_shops", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 23, name: "added_rays", kind: "map", K: 9 /*ScalarType.STRING*/, V: { kind: "message", T: () => Ray } },
+            { no: 25, name: "updated_rays", kind: "map", K: 9 /*ScalarType.STRING*/, V: { kind: "message", T: () => RayUpdate } },
+            { no: 24, name: "removed_rays", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
             { no: 18, name: "added_players_shops", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
             { no: 19, name: "removed_players_shops", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
             { no: 20, name: "updated_other_player_positions", kind: "map", K: 9 /*ScalarType.STRING*/, V: { kind: "message", T: () => Vector2 } },
@@ -2346,6 +2533,9 @@ class GameStateDeltaMessage$Type extends MessageType$<GameStateDeltaMessage> {
         message.addedShops = {};
         message.updatedShops = {};
         message.removedShops = [];
+        message.addedRays = {};
+        message.updatedRays = {};
+        message.removedRays = [];
         message.addedPlayersShops = [];
         message.removedPlayersShops = [];
         message.updatedOtherPlayerPositions = {};
@@ -2410,6 +2600,15 @@ class GameStateDeltaMessage$Type extends MessageType$<GameStateDeltaMessage> {
                     break;
                 case /* repeated string removed_shops */ 17:
                     message.removedShops.push(reader.string());
+                    break;
+                case /* map<string, protocol.Ray> added_rays */ 23:
+                    this.binaryReadMap23(message.addedRays, reader, options);
+                    break;
+                case /* map<string, protocol.RayUpdate> updated_rays */ 25:
+                    this.binaryReadMap25(message.updatedRays, reader, options);
+                    break;
+                case /* repeated string removed_rays */ 24:
+                    message.removedRays.push(reader.string());
                     break;
                 case /* repeated string added_players_shops */ 18:
                     message.addedPlayersShops.push(reader.string());
@@ -2629,6 +2828,38 @@ class GameStateDeltaMessage$Type extends MessageType$<GameStateDeltaMessage> {
         }
         map[key ?? ""] = val ?? ShopUpdate.create();
     }
+    private binaryReadMap23(map: GameStateDeltaMessage["addedRays"], reader: IBinaryReader, options: BinaryReadOptions): void {
+        let len = reader.uint32(), end = reader.pos + len, key: keyof GameStateDeltaMessage["addedRays"] | undefined, val: GameStateDeltaMessage["addedRays"][any] | undefined;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case 1:
+                    key = reader.string();
+                    break;
+                case 2:
+                    val = Ray.internalBinaryRead(reader, reader.uint32(), options);
+                    break;
+                default: throw new globalThis.Error("unknown map entry field for protocol.GameStateDeltaMessage.added_rays");
+            }
+        }
+        map[key ?? ""] = val ?? Ray.create();
+    }
+    private binaryReadMap25(map: GameStateDeltaMessage["updatedRays"], reader: IBinaryReader, options: BinaryReadOptions): void {
+        let len = reader.uint32(), end = reader.pos + len, key: keyof GameStateDeltaMessage["updatedRays"] | undefined, val: GameStateDeltaMessage["updatedRays"][any] | undefined;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case 1:
+                    key = reader.string();
+                    break;
+                case 2:
+                    val = RayUpdate.internalBinaryRead(reader, reader.uint32(), options);
+                    break;
+                default: throw new globalThis.Error("unknown map entry field for protocol.GameStateDeltaMessage.updated_rays");
+            }
+        }
+        map[key ?? ""] = val ?? RayUpdate.create();
+    }
     private binaryReadMap20(map: GameStateDeltaMessage["updatedOtherPlayerPositions"], reader: IBinaryReader, options: BinaryReadOptions): void {
         let len = reader.uint32(), end = reader.pos + len, key: keyof GameStateDeltaMessage["updatedOtherPlayerPositions"] | undefined, val: GameStateDeltaMessage["updatedOtherPlayerPositions"][any] | undefined;
         while (reader.pos < end) {
@@ -2764,6 +2995,23 @@ class GameStateDeltaMessage$Type extends MessageType$<GameStateDeltaMessage> {
         /* int64 timestamp = 22; */
         if (message.timestamp !== 0n)
             writer.tag(22, WireType.Varint).int64(message.timestamp);
+        /* map<string, protocol.Ray> added_rays = 23; */
+        for (let k of globalThis.Object.keys(message.addedRays)) {
+            writer.tag(23, WireType.LengthDelimited).fork().tag(1, WireType.LengthDelimited).string(k);
+            writer.tag(2, WireType.LengthDelimited).fork();
+            Ray.internalBinaryWrite(message.addedRays[k], writer, options);
+            writer.join().join();
+        }
+        /* repeated string removed_rays = 24; */
+        for (let i = 0; i < message.removedRays.length; i++)
+            writer.tag(24, WireType.LengthDelimited).string(message.removedRays[i]);
+        /* map<string, protocol.RayUpdate> updated_rays = 25; */
+        for (let k of globalThis.Object.keys(message.updatedRays)) {
+            writer.tag(25, WireType.LengthDelimited).fork().tag(1, WireType.LengthDelimited).string(k);
+            writer.tag(2, WireType.LengthDelimited).fork();
+            RayUpdate.internalBinaryWrite(message.updatedRays[k], writer, options);
+            writer.join().join();
+        }
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
