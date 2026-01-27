@@ -149,6 +149,10 @@ export interface Bullet {
      * @generated from protobuf field: string weapon_type = 8
      */
     weaponType: string;
+    /**
+     * @generated from protobuf field: bool is_just_spawned = 9
+     */
+    isJustSpawned: boolean;
 }
 /**
  * @generated from protobuf message protocol.Wall
@@ -1062,7 +1066,8 @@ class Bullet$Type extends MessageType$<Bullet> {
             { no: 11, name: "enemy_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 7, name: "is_active", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 10, name: "deleted_at", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ },
-            { no: 8, name: "weapon_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+            { no: 8, name: "weapon_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 9, name: "is_just_spawned", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
     create(value?: PartialMessage<Bullet>): Bullet {
@@ -1075,6 +1080,7 @@ class Bullet$Type extends MessageType$<Bullet> {
         message.isActive = false;
         message.deletedAt = 0n;
         message.weaponType = "";
+        message.isJustSpawned = false;
         if (value !== undefined)
             reflectionMergePartial<Bullet>(this, message, value);
         return message;
@@ -1114,6 +1120,9 @@ class Bullet$Type extends MessageType$<Bullet> {
                 case /* string weapon_type */ 8:
                     message.weaponType = reader.string();
                     break;
+                case /* bool is_just_spawned */ 9:
+                    message.isJustSpawned = reader.bool();
+                    break;
                 default:
                     let u = options.readUnknownField;
                     if (u === "throw")
@@ -1150,6 +1159,9 @@ class Bullet$Type extends MessageType$<Bullet> {
         /* string weapon_type = 8; */
         if (message.weaponType !== "")
             writer.tag(8, WireType.LengthDelimited).string(message.weaponType);
+        /* bool is_just_spawned = 9; */
+        if (message.isJustSpawned !== false)
+            writer.tag(9, WireType.Varint).bool(message.isJustSpawned);
         /* int64 deleted_at = 10; */
         if (message.deletedAt !== 0n)
             writer.tag(10, WireType.Varint).int64(message.deletedAt);

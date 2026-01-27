@@ -56,6 +56,7 @@ message Bullet {
   bool is_active = 7;
   int64 deleted_at = 10;
   string weapon_type = 8;
+  bool is_just_spawned = 9;
 }
 
 message Wall {

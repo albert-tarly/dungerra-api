@@ -639,6 +639,7 @@ func (e *Engine) Update() {
 	var updateDuration time.Duration
 
 	playersChunks := make(map[string]bool)
+	newBulletsIDs := make(map[string]bool)
 
 	// Update players
 	for _, player := range e.state.players {
@@ -729,7 +730,9 @@ func (e *Engine) Update() {
 			rotationRad := player.Rotation * math.Pi / 180.0
 
 			if input.Shoot {
-				e.handlePlayerShooting(player)
+				for id := range e.handlePlayerShooting(player) {
+					newBulletsIDs[id] = true
+				}
 			}
 
 			if input.Forward || input.Backward {
@@ -1064,7 +1067,10 @@ func (e *Engine) Update() {
 				// Shoot at player
 				if enemy.ShootDelay <= 0 && enemy.Rotation == desiredRotation {
 					bullet := enemy.ShootAt(closestVisiblePlayer.Position)
+
 					e.state.bullets[bullet.ID] = bullet
+					newBulletsIDs[bullet.ID] = true
+
 					if enemy.Type == types.EnemyTypeSniper {
 						e.applyBulletDamage(bullet, &types.Vector2{X: bullet.Position.X + bullet.Velocity.X, Y: bullet.Position.Y + bullet.Velocity.Y})
 					}
@@ -1211,6 +1217,17 @@ func (e *Engine) Update() {
 
 	// Update bullets
 	for _, bullet := range e.state.bullets {
+		if _, isNew := newBulletsIDs[bullet.ID]; isNew {
+			continue // Skip newly created bullets this tick
+		}
+
+		bullet.IsJustSpawned = false
+		if bullet.WeaponType == types.WeaponTypeShotgun || bullet.WeaponType == types.WeaponTypeRailgun {
+			bullet.IsActive = false
+			bullet.DeletedAt = time.Now()
+			continue
+		}
+
 		// Check if bonus was picked up and needs cleanup
 		if !bullet.DeletedAt.IsZero() {
 			if time.Since(bullet.DeletedAt) > config.DeadEntitiesCacheTimeout {
@@ -1496,7 +1513,8 @@ func (e *Engine) applyBulletDamage(bullet *types.Bullet, newPosition *types.Vect
 	return hitFound, hitObjectIDs
 }
 
-func (e *Engine) handlePlayerShooting(player *types.Player) {
+func (e *Engine) handlePlayerShooting(player *types.Player) (newBulletsIDs map[string]bool) {
+	newBulletsIDs = make(map[string]bool)
 	rotationRad := player.Rotation * math.Pi / 180.0
 	bulletsLeft := player.BulletsLeftByWeaponType[player.SelectedGunType]
 	usingBulletsFromInventory := false
@@ -1607,12 +1625,6 @@ func (e *Engine) handlePlayerShooting(player *types.Player) {
 			})
 		}
 
-		isActive := player.SelectedGunType != types.WeaponTypeRailgun && player.SelectedGunType != types.WeaponTypeShotgun
-		deletedAt := time.Time{}
-		if !isActive {
-			deletedAt = time.Now()
-		}
-
 		damage := types.DamageByWeaponType[player.SelectedGunType] / float32(len(velocities))
 
 		for _, velocity := range velocities {
@@ -1622,13 +1634,13 @@ func (e *Engine) handlePlayerShooting(player *types.Player) {
 					ID:       uuid.New().String(),
 					Position: playerGunPoint,
 				},
-				Velocity:   velocity,
-				OwnerID:    player.ID,
-				SpawnTime:  time.Now(),
-				Damage:     damage,
-				IsActive:   isActive,
-				DeletedAt:  deletedAt,
-				WeaponType: player.SelectedGunType,
+				Velocity:      velocity,
+				OwnerID:       player.ID,
+				IsActive:      true,
+				SpawnTime:     time.Now(),
+				IsJustSpawned: true,
+				Damage:        damage,
+				WeaponType:    player.SelectedGunType,
 			}
 
 			if player.SelectedGunType == types.WeaponTypeRailgun || player.SelectedGunType == types.WeaponTypeShotgun {
@@ -1636,9 +1648,11 @@ func (e *Engine) handlePlayerShooting(player *types.Player) {
 			}
 
 			e.state.bullets[bullet.ID] = bullet
+			newBulletsIDs[bullet.ID] = true
 		}
 	}
 
+	return newBulletsIDs
 }
 
 func (e *Engine) applyRocketExplosionDamage(explosionCenter *types.Vector2, hitObjectIDs map[string]bool, ownerID string) {
@@ -1917,13 +1931,13 @@ func (e *Engine) GetGameStateDeltaForPlayer(playerID string) *protocol.GameState
 			}
 
 			bulletUpdate := protocol.ToProtoBulletUpdate(prev, bullet)
-			if bulletUpdate != nil {
+			if bullet.IsActive && bulletUpdate != nil {
 				delta.UpdatedBullets[id] = bulletUpdate
 				continue
 			}
 		}
 
-		if prevExists {
+		if prevExists && prev.IsActive {
 			delta.RemovedBullets[id] = bulletCopy
 		}
 	}
@@ -2094,8 +2108,9 @@ func (e *Engine) GetGameStateDeltaForPlayer(playerID string) *protocol.GameState
 			delta.AddedRays[ray.ID] = protocol.ToProtoRay(ray)
 		} else {
 			if ray.IsVisibleToPlayer(player) {
-				if !prev.Equal(ray) {
-					delta.UpdatedRays[ray.ID] = protocol.ToProtoRayUpdate(prev, ray)
+				rayUpdate := protocol.ToProtoRayUpdate(prev, ray)
+				if rayUpdate != nil {
+					delta.UpdatedRays[ray.ID] = rayUpdate
 				}
 			} else {
 				delta.RemovedRays = append(delta.RemovedRays, ray.ID)

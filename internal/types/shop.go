@@ -82,41 +82,6 @@ func GenerateShop(position *Vector2) *Shop {
 	return shop
 }
 
-func ShopsEqual(s *Shop, other *Shop) bool {
-	if s == nil && other == nil {
-		return true
-	}
-	if s == nil || other == nil {
-		return false
-	}
-	return s.Equal(other)
-}
-
-func (s *Shop) Equal(other *Shop) bool {
-	if s.Position.X != other.Position.X || s.Position.Y != other.Position.Y {
-		return false
-	}
-
-	if len(s.Inventory) != len(other.Inventory) {
-		return false
-	}
-
-	for itemID, item := range s.Inventory {
-		otherItem, exists := other.Inventory[itemID]
-		if !exists || item.Price != otherItem.Price || item.Quantity != otherItem.Quantity || item.PackSize != otherItem.PackSize {
-			return false
-		}
-	}
-
-	for itemID := range other.Inventory {
-		if _, exists := s.Inventory[itemID]; !exists {
-			return false
-		}
-	}
-
-	return true
-}
-
 func (s *Shop) IsVisibleToPlayer(player *Player) bool {
 	if player.NightVisionTimer > 0 {
 		return s.DistanceToPoint(player.Position) <= config.SightRadius

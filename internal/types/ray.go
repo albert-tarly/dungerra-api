@@ -12,11 +12,6 @@ type Ray struct {
 	Type        string   `json:"type"`
 }
 
-func (r *Ray) Equal(other *Ray) bool {
-	return r.Position.Equal(other.Position) &&
-		r.EndPosition.Equal(other.EndPosition)
-}
-
 func (r *Ray) IsVisibleToPlayer(player *Player) bool {
 	closestPointX, closestPointY := utils.ClosestPointOnLineSegment(r.Position.X, r.Position.Y, r.EndPosition.X, r.EndPosition.Y, player.Position.X, player.Position.Y)
 	return player.DistanceToPoint(&Vector2{X: closestPointX, Y: closestPointY}) <= config.SightRadius

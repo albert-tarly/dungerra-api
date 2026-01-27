@@ -359,6 +359,7 @@ type Bullet struct {
 	IsActive      bool                   `protobuf:"varint,7,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
 	DeletedAt     int64                  `protobuf:"varint,10,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"`
 	WeaponType    string                 `protobuf:"bytes,8,opt,name=weapon_type,json=weaponType,proto3" json:"weapon_type,omitempty"`
+	IsJustSpawned bool                   `protobuf:"varint,9,opt,name=is_just_spawned,json=isJustSpawned,proto3" json:"is_just_spawned,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -461,6 +462,13 @@ func (x *Bullet) GetWeaponType() string {
 		return x.WeaponType
 	}
 	return ""
+}
+
+func (x *Bullet) GetIsJustSpawned() bool {
+	if x != nil {
+		return x.IsJustSpawned
+	}
+	return false
 }
 
 type Wall struct {
@@ -2240,7 +2248,7 @@ const file_messages_proto_rawDesc = "" +
 	"\x11selected_gun_type\x18\x0f \x01(\tR\x0fselectedGunType\x1aJ\n" +
 	"\x1cBulletsLeftByWeaponTypeEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\xc0\x02\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\xe8\x02\n" +
 	"\x06Bullet\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12-\n" +
 	"\bposition\x18\x02 \x01(\v2\x11.protocol.Vector2R\bposition\x12-\n" +
@@ -2255,7 +2263,8 @@ const file_messages_proto_rawDesc = "" +
 	"deleted_at\x18\n" +
 	" \x01(\x03R\tdeletedAt\x12\x1f\n" +
 	"\vweapon_type\x18\b \x01(\tR\n" +
-	"weaponType\"\x95\x01\n" +
+	"weaponType\x12&\n" +
+	"\x0fis_just_spawned\x18\t \x01(\bR\risJustSpawned\"\x95\x01\n" +
 	"\x04Wall\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12-\n" +
 	"\bposition\x18\x02 \x01(\v2\x11.protocol.Vector2R\bposition\x12\x14\n" +

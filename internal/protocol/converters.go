@@ -143,16 +143,17 @@ func ToProtoBullet(b *types.Bullet) *Bullet {
 		return nil
 	}
 	return &Bullet{
-		Id:         b.ID,
-		Position:   ToProtoVector2(b.Position),
-		Velocity:   ToProtoVector2(b.Velocity),
-		OwnerId:    b.OwnerID,
-		Damage:     b.Damage,
-		IsEnemy:    b.IsEnemy,
-		EnemyType:  b.EnemyType,
-		IsActive:   b.IsActive,
-		DeletedAt:  b.DeletedAt.UnixMilli(),
-		WeaponType: b.WeaponType,
+		Id:            b.ID,
+		Position:      ToProtoVector2(b.Position),
+		Velocity:      ToProtoVector2(b.Velocity),
+		OwnerId:       b.OwnerID,
+		Damage:        b.Damage,
+		IsEnemy:       b.IsEnemy,
+		EnemyType:     b.EnemyType,
+		IsActive:      b.IsActive,
+		DeletedAt:     b.DeletedAt.UnixMilli(),
+		WeaponType:    b.WeaponType,
+		IsJustSpawned: b.IsJustSpawned,
 	}
 }
 
@@ -319,10 +320,11 @@ func ToProtoRay(r *types.Ray) *Ray {
 }
 
 func ToProtoRayUpdate(prev, curr *types.Ray) *RayUpdate {
-	if prev == nil || curr == nil || prev.Equal(curr) {
+	if prev == nil || curr == nil {
 		return nil
 	}
 
+	hasUpdate := false
 	update := &RayUpdate{}
 
 	if !prev.Position.Equal(curr.Position) {
@@ -330,6 +332,7 @@ func ToProtoRayUpdate(prev, curr *types.Ray) *RayUpdate {
 			X: curr.Position.X,
 			Y: curr.Position.Y,
 		}
+		hasUpdate = true
 	}
 
 	if !prev.EndPosition.Equal(curr.EndPosition) {
@@ -337,6 +340,11 @@ func ToProtoRayUpdate(prev, curr *types.Ray) *RayUpdate {
 			X: curr.EndPosition.X,
 			Y: curr.EndPosition.Y,
 		}
+		hasUpdate = true
+	}
+
+	if !hasUpdate {
+		return nil
 	}
 
 	return update

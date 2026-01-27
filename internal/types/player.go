@@ -35,52 +35,6 @@ type Player struct {
 	SelectedGunType         string           `json:"selectedGunType"`
 }
 
-func PlayersEqual(a, b *Player) bool {
-	if a != nil && b == nil || a == nil && b != nil {
-		return false
-	}
-
-	if a == nil && b == nil {
-		return true
-	}
-
-	return a.Equal(b)
-}
-
-// Helper functions to compare entities
-func (p *Player) Equal(b *Player) bool {
-	basicPropsEqual := p.Position.X == b.Position.X && p.Position.Y == b.Position.Y &&
-		p.Rotation == b.Rotation && p.Lives == b.Lives && p.Score == b.Score &&
-		p.Money == b.Money && p.Kills == b.Kills && p.NightVisionTimer == b.NightVisionTimer &&
-		p.IsAlive == b.IsAlive && p.SelectedGunType == b.SelectedGunType
-
-	if !basicPropsEqual {
-		return false
-	}
-
-	if len(p.BulletsLeftByWeaponType) != len(b.BulletsLeftByWeaponType) {
-		return false
-	}
-
-	for weaponType, bulletsLeft := range p.BulletsLeftByWeaponType {
-		if b.BulletsLeftByWeaponType[weaponType] != bulletsLeft {
-			return false
-		}
-	}
-
-	if len(p.Inventory) != len(b.Inventory) {
-		return false
-	}
-
-	for i := range p.Inventory {
-		if p.Inventory[i].Quantity != b.Inventory[i].Quantity || p.Inventory[i].Type != b.Inventory[i].Type {
-			return false
-		}
-	}
-
-	return true
-}
-
 func (p *Player) Clone() *Player {
 	clone := *p
 
