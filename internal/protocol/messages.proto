@@ -47,6 +47,7 @@ message Player {
 
 message Bullet {
   string id = 1;
+  string batch_id = 12;
   Vector2 position = 2;
   Vector2 velocity = 3;
   string owner_id = 4;

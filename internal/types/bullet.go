@@ -10,6 +10,7 @@ import (
 // Bullet represents a projectile in the game
 type Bullet struct {
 	ScreenObject
+	BatchID       string    `json:"batchId"`
 	Velocity      *Vector2  `json:"velocity"`
 	OwnerID       string    `json:"ownerId"`
 	IsEnemy       bool      `json:"isEnemy"`

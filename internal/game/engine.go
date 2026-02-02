@@ -993,6 +993,11 @@ func (e *Engine) Update() {
 				continue // No players nearby
 			}
 
+			// Update shoot delay
+			if enemy.ShootDelay > 0 {
+				enemy.ShootDelay -= deltaTime
+			}
+
 			if canSee {
 				// Aim at player
 				dx := closestVisiblePlayer.Position.X - enemy.Position.X
@@ -1057,11 +1062,6 @@ func (e *Engine) Update() {
 
 						e.state.rays[enemy.ID] = ray
 					}
-				}
-
-				// Update shoot delay
-				if enemy.ShootDelay > 0 {
-					enemy.ShootDelay -= deltaTime
 				}
 
 				// Shoot at player
@@ -1626,6 +1626,10 @@ func (e *Engine) handlePlayerShooting(player *types.Player) (newBulletsIDs map[s
 		}
 
 		damage := types.DamageByWeaponType[player.SelectedGunType] / float32(len(velocities))
+		var batchID string
+		if len(velocities) > 1 {
+			batchID = uuid.New().String()
+		}
 
 		for _, velocity := range velocities {
 			// Create bullet
@@ -1634,6 +1638,7 @@ func (e *Engine) handlePlayerShooting(player *types.Player) (newBulletsIDs map[s
 					ID:       uuid.New().String(),
 					Position: playerGunPoint,
 				},
+				BatchID:       batchID,
 				Velocity:      velocity,
 				OwnerID:       player.ID,
 				IsActive:      true,

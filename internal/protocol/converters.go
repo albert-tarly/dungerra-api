@@ -144,6 +144,7 @@ func ToProtoBullet(b *types.Bullet) *Bullet {
 	}
 	return &Bullet{
 		Id:            b.ID,
+		BatchId:       b.BatchID,
 		Position:      ToProtoVector2(b.Position),
 		Velocity:      ToProtoVector2(b.Velocity),
 		OwnerId:       b.OwnerID,

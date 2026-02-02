@@ -114,6 +114,10 @@ export interface Bullet {
      */
     id: string;
     /**
+     * @generated from protobuf field: string batch_id = 12
+     */
+    batchId: string;
+    /**
      * @generated from protobuf field: protocol.Vector2 position = 2
      */
     position?: Vector2;
@@ -1058,6 +1062,7 @@ class Bullet$Type extends MessageType$<Bullet> {
     constructor() {
         super("protocol.Bullet", [
             { no: 1, name: "id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 12, name: "batch_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 2, name: "position", kind: "message", T: () => Vector2 },
             { no: 3, name: "velocity", kind: "message", T: () => Vector2 },
             { no: 4, name: "owner_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
@@ -1073,6 +1078,7 @@ class Bullet$Type extends MessageType$<Bullet> {
     create(value?: PartialMessage<Bullet>): Bullet {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.id = "";
+        message.batchId = "";
         message.ownerId = "";
         message.damage = 0;
         message.isEnemy = false;
@@ -1092,6 +1098,9 @@ class Bullet$Type extends MessageType$<Bullet> {
             switch (fieldNo) {
                 case /* string id */ 1:
                     message.id = reader.string();
+                    break;
+                case /* string batch_id */ 12:
+                    message.batchId = reader.string();
                     break;
                 case /* protocol.Vector2 position */ 2:
                     message.position = Vector2.internalBinaryRead(reader, reader.uint32(), options, message.position);
@@ -1168,6 +1177,9 @@ class Bullet$Type extends MessageType$<Bullet> {
         /* string enemy_type = 11; */
         if (message.enemyType !== "")
             writer.tag(11, WireType.LengthDelimited).string(message.enemyType);
+        /* string batch_id = 12; */
+        if (message.batchId !== "")
+            writer.tag(12, WireType.LengthDelimited).string(message.batchId);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

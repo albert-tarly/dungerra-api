@@ -350,6 +350,7 @@ func (x *Player) GetSelectedGunType() string {
 type Bullet struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	BatchId       string                 `protobuf:"bytes,12,opt,name=batch_id,json=batchId,proto3" json:"batch_id,omitempty"`
 	Position      *Vector2               `protobuf:"bytes,2,opt,name=position,proto3" json:"position,omitempty"`
 	Velocity      *Vector2               `protobuf:"bytes,3,opt,name=velocity,proto3" json:"velocity,omitempty"`
 	OwnerId       string                 `protobuf:"bytes,4,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
@@ -397,6 +398,13 @@ func (*Bullet) Descriptor() ([]byte, []int) {
 func (x *Bullet) GetId() string {
 	if x != nil {
 		return x.Id
+	}
+	return ""
+}
+
+func (x *Bullet) GetBatchId() string {
+	if x != nil {
+		return x.BatchId
 	}
 	return ""
 }
@@ -2248,9 +2256,10 @@ const file_messages_proto_rawDesc = "" +
 	"\x11selected_gun_type\x18\x0f \x01(\tR\x0fselectedGunType\x1aJ\n" +
 	"\x1cBulletsLeftByWeaponTypeEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\xe8\x02\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\x83\x03\n" +
 	"\x06Bullet\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12-\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
+	"\bbatch_id\x18\f \x01(\tR\abatchId\x12-\n" +
 	"\bposition\x18\x02 \x01(\v2\x11.protocol.Vector2R\bposition\x12-\n" +
 	"\bvelocity\x18\x03 \x01(\v2\x11.protocol.Vector2R\bvelocity\x12\x19\n" +
 	"\bowner_id\x18\x04 \x01(\tR\aownerId\x12\x16\n" +
