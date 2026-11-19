@@ -64,13 +64,15 @@ func main() {
 	// Load configuration
 	cfg := config.LoadConfig()
 
-	// Connect to MongoDB
-	if err := db.Connect(cfg.MongoDBURL); err != nil {
-		log.Fatal("Failed to connect to MongoDB: ", err)
+	// Open the configured storage backend (MongoDB or embedded SQLite)
+	if err := db.Open(db.Options{
+		Driver:     cfg.DBDriver,
+		MongoDBURL: cfg.MongoDBURL,
+		SQLitePath: cfg.SQLitePath,
+	}); err != nil {
+		log.Fatalf("Failed to open %s database: %v", cfg.DBDriver, err)
 	}
-	defer db.Disconnect()
-
-	log.Println("MongoDB connected successfully")
+	defer db.Close()
 
 	// Create game server
 	gameServer := server.NewGameServer()
@@ -78,18 +80,29 @@ func main() {
 	// Start game loop in background
 	go gameServer.Run()
 
-	// Setup auth handlers
-	googleAuth := auth.NewGoogleAuthHandler()
+	// Setup handlers
+	userHandler := auth.NewUserHandler()
 	sessionHandler := handlers.NewSessionHandler()
 	leaderboardHandler := handlers.NewLeaderboardHandler()
 
 	// Setup HTTP routes
 	http.HandleFunc("/ws", gameServer.HandleWebSocket)
 
-	// Auth endpoints
-	http.HandleFunc("/api/v1/auth/google/url", corsMiddleware(googleAuth.HandleGetAuthURL))
-	http.HandleFunc("/api/v1/auth/google/callback", googleAuth.HandleCallback)
-	http.HandleFunc("/api/v1/auth/user", corsMiddleware(googleAuth.HandleGetUser))
+	// Auth endpoints. Provider routes are only registered when the provider is
+	// enabled, so a disabled provider is unreachable (404) rather than half-working.
+	http.HandleFunc("/api/v1/auth/providers", corsMiddleware(userHandler.HandleProviders))
+	http.HandleFunc("/api/v1/auth/user", corsMiddleware(userHandler.HandleGetUser))
+	if cfg.GoogleAuthEnabled {
+		googleAuth := auth.NewGoogleAuthHandler()
+		http.HandleFunc("/api/v1/auth/google/url", corsMiddleware(googleAuth.HandleGetAuthURL))
+		http.HandleFunc("/api/v1/auth/google/callback", googleAuth.HandleCallback)
+	}
+	if cfg.LocalAuthEnabled {
+		localAuth := auth.NewLocalAuthHandler()
+		http.HandleFunc("/api/v1/auth/local/register", corsMiddleware(localAuth.HandleRegister))
+		http.HandleFunc("/api/v1/auth/local/login", corsMiddleware(localAuth.HandleLogin))
+	}
+	log.Printf("Auth providers: google=%v local=%v", cfg.GoogleAuthEnabled, cfg.LocalAuthEnabled)
 
 	// Session endpoints
 	http.HandleFunc("/api/v1/sessions", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {

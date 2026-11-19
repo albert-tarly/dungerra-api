@@ -12,8 +12,8 @@ import (
 
 // LeaderboardHandler handles leaderboard-related HTTP requests
 type LeaderboardHandler struct {
-	sessionRepo *db.GameSessionRepository
-	userRepo    *db.UserRepository
+	sessionRepo db.GameSessionRepository
+	userRepo    db.UserRepository
 }
 
 // NewLeaderboardHandler creates a new leaderboard handler

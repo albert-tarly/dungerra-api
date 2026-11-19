@@ -4,7 +4,28 @@ This document describes the REST API endpoints available in the Dungeon Game ser
 
 ## Authentication Endpoints
 
+Sign-in providers are behind feature switches (`GOOGLE_AUTH_ENABLED`, `LOCAL_AUTH_ENABLED`). Endpoints of a disabled provider return `404`. See [authentication.md](authentication.md) for the account model.
+
+### Get Enabled Providers
+
+```
+GET /api/v1/auth/providers
+```
+
+**Response:**
+
+```json
+{
+  "google": true,
+  "local": false
+}
+```
+
+Clients should show only the sign-in options that are enabled.
+
 ### Get Google OAuth URL
+
+*Requires `GOOGLE_AUTH_ENABLED`.*
 
 ```
 GET /api/v1/auth/google/url
@@ -16,31 +37,69 @@ Returns a Google OAuth URL for authentication.
 
 ```json
 {
-  "url": "https://accounts.google.com/o/oauth2/auth?..."
+  "url": "https://accounts.google.com/o/oauth2/auth?...",
+  "state": "..."
 }
 ```
 
 ### Google OAuth Callback
 
+*Requires `GOOGLE_AUTH_ENABLED`.*
+
 ```
 GET /api/v1/auth/google/callback?code=...&state=...
 ```
 
-Handles the Google OAuth callback and returns a JWT token.
+Handles the Google OAuth callback, finds or creates the Google account, and redirects to `{FRONTEND_URL}?token={jwt}`.
 
-**Response:**
+### Register Local Account
+
+*Requires `LOCAL_AUTH_ENABLED`.*
+
+```
+POST /api/v1/auth/local/register
+Content-Type: application/json
+
+{ "username": "alice", "password": "correct horse" }
+```
+
+- `username`: 3–24 characters; letters, digits, `_`, `-`, `.`; unique case-insensitively
+- `password`: 8–72 characters
+
+**Response:** `201 Created`
 
 ```json
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
     "id": "...",
-    "email": "user@example.com",
-    "username": "username",
-    "is_active": true
+    "provider": "local",
+    "username": "alice",
+    "display_name": "alice@local",
+    "is_active": true,
+    "created_at": "2026-01-01T00:00:00Z"
   }
 }
 ```
+
+**Errors:** `400` invalid username/password (plain-text message explains the rule), `409` username already taken.
+
+### Log In With Local Account
+
+*Requires `LOCAL_AUTH_ENABLED`.*
+
+```
+POST /api/v1/auth/local/login
+Content-Type: application/json
+
+{ "username": "alice", "password": "correct horse" }
+```
+
+The username is matched case-insensitively.
+
+**Response:** `200 OK`, same body as registration.
+
+**Errors:** `401` invalid username or password.
 
 ### Get Current User
 
@@ -56,14 +115,18 @@ Returns information about the currently authenticated user.
 ```json
 {
   "id": "...",
+  "provider": "google",
   "email": "user@example.com",
   "username": "username",
+  "display_name": "username",
   "google_id": "...",
   "is_active": true,
   "current_session": "...",
   "created_at": "2024-01-01T00:00:00Z"
 }
 ```
+
+`email` and `google_id` are present only for Google accounts. `display_name` is the name other players see (`username@local` for local accounts).
 
 ## Session Endpoints
 
@@ -105,6 +168,7 @@ Creates a new game session. The authenticated user becomes the host.
     "id": "...",
     "email": "user@example.com",
     "username": "username",
+    "provider": "google",
     "is_active": true,
     "created_at": "2024-01-01T00:00:00Z"
   },
@@ -346,7 +410,11 @@ All API endpoints support CORS for the configured `FRONTEND_URL`. The following 
 
 ## Rate Limiting
 
-Currently, there are no rate limits implemented. This should be added in production environments.
+Currently, there are no rate limits implemented. This should be added in production environments, especially for `/api/v1/auth/local/login` and `/api/v1/auth/local/register` when local accounts are enabled on a public server.
+
+## Player Names
+
+Wherever player names appear (session `host.username`, in-game player names, leaderboard `username`), they are **display names**: local accounts carry an `@local` suffix (e.g. `alice@local`), Google accounts show the plain username.
 
 ## Authentication
 

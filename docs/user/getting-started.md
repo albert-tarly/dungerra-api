@@ -2,7 +2,14 @@
 
 ## Signing in
 
-Dungerra uses **Google sign-in**. The first time you sign in, an account is created for you automatically. Your in-game name is the part of your email address before the `@` (for example, `jane.doe@gmail.com` plays as **jane.doe**). Other players see this name, and it appears on the leaderboard.
+Depending on how the server you play on is set up, you can sign in with **Google**, with a **local account** (a username and password you choose), or with either.
+
+- **Google:** the first time you sign in, an account is created for you automatically. Your in-game name is the part of your email address before the `@` (for example, `jane.doe@gmail.com` plays as **jane.doe**).
+- **Local account:** choose **Create account**, then pick a username (3–24 letters, digits, `_`, `-` or `.`) and a password of at least 8 characters. Other players see your name with `@local` added (for example, **jane@local**), so it can't be confused with a Google player of the same name. Usernames are not case-sensitive: `Jane` and `jane` are the same account.
+
+Google and local accounts are separate. Signing in with Google and with a local account of the same name gives you two different characters, each with its own progress and leaderboard entries.
+
+Other players see your name in game, and it appears on the leaderboard.
 
 A sign-in lasts about 8 days. After that you are asked to sign in again.
 

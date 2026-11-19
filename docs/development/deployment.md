@@ -198,7 +198,24 @@ PORT=443                   # Port to listen on
 USE_TLS=true               # Enable HTTPS
 TLS_CERT=/path/cert.pem    # Certificate file
 TLS_KEY=/path/key.pem      # Private key file
+
+DB_DRIVER=mongodb          # "mongodb" (hosted) or "sqlite" (single server / desktop)
+MONGODB_URL=mongodb+srv://...
+SQLITE_PATH=/var/lib/dungerra/dungerra.db
+
+GOOGLE_AUTH_ENABLED=true   # Google sign-in (needs GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET)
+LOCAL_AUTH_ENABLED=false   # Username + password accounts
 ```
+
+### Choosing a database and sign-in providers
+
+- **Hosted / multiple instances:** `DB_DRIVER=mongodb`. An SQLite file can only be used by one server process.
+- **Single server or desktop bundle:** `DB_DRIVER=sqlite` needs no database service. Put `SQLITE_PATH` on persistent storage (a volume in Docker) and back the file up.
+- **Sign-in:** at least one of `GOOGLE_AUTH_ENABLED` / `LOCAL_AUTH_ENABLED` must be on. Local accounts have no built-in rate limiting; on a public server, rate-limit `/api/v1/auth/local/*` at the reverse proxy.
+
+When upgrading an existing MongoDB deployment, the first start migrates users to the provider-based account model (see [database.md](database.md)). Back up the `users` collection first, and make sure the database user may drop indexes.
+
+See [database.md](database.md) and [authentication.md](authentication.md) for details.
 
 ## Examples
 
@@ -279,7 +296,7 @@ server {
 }
 ```
 
-**Note**: Each server instance maintains its own game state. For shared state, you'd need to implement state synchronization or session affinity.
+**Note**: Each server instance maintains its own game state. For shared state, you'd need to implement state synchronization or session affinity. Multiple instances also require `DB_DRIVER=mongodb`, because an SQLite database cannot be shared between processes.
 
 ## Monitoring
 

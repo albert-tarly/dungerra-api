@@ -13,8 +13,8 @@ import (
 
 // SessionHandler handles session-related HTTP requests
 type SessionHandler struct {
-	sessionRepo *db.GameSessionRepository
-	userRepo    *db.UserRepository
+	sessionRepo db.GameSessionRepository
+	userRepo    db.UserRepository
 }
 
 // NewSessionHandler creates a new session handler
@@ -53,7 +53,8 @@ type SessionResponse struct {
 type UserResponse struct {
 	ID             string `json:"id"`
 	Email          string `json:"email"`
-	Username       string `json:"username"`
+	Username       string `json:"username"` // display name (local accounts carry the @local suffix)
+	Provider       string `json:"provider"`
 	GoogleID       string `json:"google_id,omitempty"`
 	IsActive       bool   `json:"is_active"`
 	CurrentSession string `json:"current_session,omitempty"`
@@ -273,7 +274,8 @@ func (h *SessionHandler) sessionToResponse(session *db.GameSession, host *db.Use
 		Host: UserResponse{
 			ID:             host.ID.Hex(),
 			Email:          host.Email,
-			Username:       host.Username,
+			Username:       host.DisplayName(),
+			Provider:       host.Provider,
 			GoogleID:       host.GoogleID,
 			IsActive:       host.IsActive,
 			CurrentSession: host.CurrentSession,

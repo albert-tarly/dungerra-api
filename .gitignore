@@ -42,3 +42,9 @@ bin/
 .env.local
 
 node_modules/
+
+# Embedded SQLite database (DB_DRIVER=sqlite)
+data/
+*.db
+*.db-shm
+*.db-wal

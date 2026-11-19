@@ -1,25 +1,50 @@
 package db
 
 import (
-	"context"
 	"time"
 
-	"github.com/besuhoff/dungerra/internal/config"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+// Models are shared by all storage backends. The bson tags drive the MongoDB
+// backend; the json tags are used both by the HTTP API and by the SQLite
+// backend for the nested documents it stores as JSON.
+//
+// primitive.ObjectID is used purely as a compact, globally unique,
+// client-generated ID; the SQLite backend stores it as its hex string.
+
+// Authentication providers. A user account belongs to exactly one provider and
+// is identified by (Provider, ProviderID); accounts of different providers are
+// never merged, even if they share an email or username.
+const (
+	ProviderGoogle = "google" // ProviderID = Google account ID
+	ProviderLocal  = "local"  // ProviderID = lower-cased username
+)
+
+// LocalDisplaySuffix marks local accounts wherever names are shown to players,
+// so "alice" (Google) and "alice@local" can't be confused.
+const LocalDisplaySuffix = "@local"
 
 // User represents a user in the database
 type User struct {
 	ID             primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Email          string             `bson:"email" json:"email"`
-	GoogleID       string             `bson:"google_id,omitempty" json:"google_id,omitempty"`
+	Provider       string             `bson:"provider" json:"provider"`
+	ProviderID     string             `bson:"provider_id" json:"-"`
+	Email          string             `bson:"email,omitempty" json:"email,omitempty"`
+	GoogleID       string             `bson:"google_id,omitempty" json:"google_id,omitempty"` // kept for Google accounts for backward compatibility
 	Username       string             `bson:"username" json:"username"`
+	PasswordHash   string             `bson:"password_hash,omitempty" json:"-"` // bcrypt; local accounts only
 	IsActive       bool               `bson:"is_active" json:"is_active"`
 	CreatedAt      time.Time          `bson:"created_at" json:"created_at"`
 	CurrentSession string             `bson:"current_session,omitempty" json:"current_session,omitempty"`
+}
+
+// DisplayName is the name shown to other players (in-game, leaderboards).
+func (u *User) DisplayName() string {
+	if u.Provider == ProviderLocal {
+		return u.Username + LocalDisplaySuffix
+	}
+	return u.Username
 }
 
 type InventoryItem struct {
@@ -88,154 +113,7 @@ type GameSession struct {
 	GameVersion   string                 `bson:"game_version" json:"game_version"`
 }
 
-// UserRepository provides database operations for users
-type UserRepository struct {
-	collection *mongo.Collection
-}
-
-// NewUserRepository creates a new user repository
-func NewUserRepository() *UserRepository {
-	return &UserRepository{
-		collection: Database.Collection("users"),
-	}
-}
-
-// FindByEmail finds a user by email
-func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
-	var user User
-	err := r.collection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
-	if err != nil {
-		return nil, err
-	}
-	return &user, nil
-}
-
-// FindByGoogleID finds a user by Google ID
-func (r *UserRepository) FindByGoogleID(ctx context.Context, googleID string) (*User, error) {
-	var user User
-	err := r.collection.FindOne(ctx, bson.M{"google_id": googleID}).Decode(&user)
-	if err != nil {
-		return nil, err
-	}
-	return &user, nil
-}
-
-// FindByID finds a user by ID
-func (r *UserRepository) FindByID(ctx context.Context, id primitive.ObjectID) (*User, error) {
-	var user User
-	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&user)
-	if err != nil {
-		return nil, err
-	}
-	return &user, nil
-}
-
-// Create creates a new user
-func (r *UserRepository) Create(ctx context.Context, user *User) error {
-	user.CreatedAt = time.Now()
-	user.IsActive = true
-
-	result, err := r.collection.InsertOne(ctx, user)
-	if err != nil {
-		return err
-	}
-
-	user.ID = result.InsertedID.(primitive.ObjectID)
-	return nil
-}
-
-// Update updates a user
-func (r *UserRepository) Update(ctx context.Context, user *User) error {
-	_, err := r.collection.UpdateOne(
-		ctx,
-		bson.M{"_id": user.ID},
-		bson.M{"$set": user},
-	)
-	return err
-}
-
-// GameSessionRepository provides database operations for game sessions
-type GameSessionRepository struct {
-	collection *mongo.Collection
-}
-
-// NewGameSessionRepository creates a new game session repository
-func NewGameSessionRepository() *GameSessionRepository {
-	return &GameSessionRepository{
-		collection: Database.Collection("game_sessions"),
-	}
-}
-
-// FindByID finds a game session by ID
-func (r *GameSessionRepository) FindByID(ctx context.Context, id primitive.ObjectID) (*GameSession, error) {
-	var session GameSession
-	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&session)
-	if err != nil {
-		return nil, err
-	}
-	return &session, nil
-}
-
-// FindActiveSessions finds all active game sessions
-func (r *GameSessionRepository) FindActiveSessions(ctx context.Context) ([]GameSession, error) {
-	cursor, err := r.collection.Find(ctx, bson.M{"is_active": true})
-	if err != nil {
-		return nil, err
-	}
-	defer cursor.Close(ctx)
-
-	var sessions []GameSession
-	if err := cursor.All(ctx, &sessions); err != nil {
-		return nil, err
-	}
-	return sessions, nil
-}
-
-// Create creates a new game session
-func (r *GameSessionRepository) Create(ctx context.Context, session *GameSession) error {
-	session.CreatedAt = time.Now()
-	session.LastUpdated = time.Now()
-	session.GameVersion = config.GameVersion
-	session.IsActive = true
-
-	if session.Players == nil {
-		session.Players = make(map[string]PlayerState)
-	}
-	if session.WorldMap == nil {
-		session.WorldMap = make(map[string]Chunk)
-	}
-	if session.SharedObjects == nil {
-		session.SharedObjects = make(map[string]WorldObject)
-	}
-
-	result, err := r.collection.InsertOne(ctx, session)
-	if err != nil {
-		return err
-	}
-
-	session.ID = result.InsertedID.(primitive.ObjectID)
-	return nil
-}
-
-// Update updates a game session
-func (r *GameSessionRepository) Update(ctx context.Context, session *GameSession) error {
-	session.LastUpdated = time.Now()
-
-	_, err := r.collection.UpdateOne(
-		ctx,
-		bson.M{"_id": session.ID},
-		bson.M{"$set": session},
-	)
-	return err
-}
-
-// Delete deletes a game session
-func (r *GameSessionRepository) Delete(ctx context.Context, id primitive.ObjectID) error {
-	_, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
-	return err
-}
-
-// Leaderboard
+// LeaderboardEntry is a user's best result within a session.
 type LeaderboardEntry struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	UserID      primitive.ObjectID `bson:"user_id" json:"user_id"`
@@ -247,103 +125,4 @@ type LeaderboardEntry struct {
 	Deaths      int                `bson:"deaths" json:"deaths"`
 	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
 	UpdatedAt   time.Time          `bson:"updated_at" json:"updated_at"`
-}
-
-type LeaderboardRepository struct {
-	collection *mongo.Collection
-}
-
-// UpsertEntry creates or updates a leaderboard entry for a user in a session
-func (r *LeaderboardRepository) UpsertEntry(ctx context.Context, entry *LeaderboardEntry) error {
-	filter := bson.M{
-		"user_id":    entry.UserID,
-		"session_id": entry.SessionID,
-	}
-
-	update := bson.M{
-		"$max": bson.M{
-			"score": entry.Score, // Only update if new score is higher
-			"kills": entry.Kills, // Only update if new kills is higher
-		},
-		"$set": bson.M{
-			"username":     entry.Username,
-			"session_name": entry.SessionName,
-			"updated_at":   time.Now(),
-		},
-		"$inc": bson.M{
-			"deaths": 1,
-		},
-		"$setOnInsert": bson.M{
-			"created_at": time.Now(),
-		},
-	}
-
-	opts := options.Update().SetUpsert(true)
-	_, err := r.collection.UpdateOne(ctx, filter, update, opts)
-	return err
-}
-
-// GetTopScores returns the top N scores globally
-func (r *LeaderboardRepository) GetTopScores(ctx context.Context, limit int) ([]LeaderboardEntry, error) {
-	opts := options.Find().SetSort(bson.D{{Key: "score", Value: -1}}).SetLimit(int64(limit))
-	cursor, err := r.collection.Find(ctx, bson.M{}, opts)
-	if err != nil {
-		return nil, err
-	}
-	defer cursor.Close(ctx)
-
-	var entries []LeaderboardEntry
-	if err := cursor.All(ctx, &entries); err != nil {
-		return nil, err
-	}
-	return entries, nil
-}
-
-// GetTopScoresBySession returns the top N scores for a specific session
-func (r *LeaderboardRepository) GetTopScoresBySession(ctx context.Context, sessionID string, limit int) ([]LeaderboardEntry, error) {
-	filter := bson.M{"session_id": sessionID}
-	opts := options.Find().SetSort(bson.D{{Key: "score", Value: -1}}).SetLimit(int64(limit))
-	cursor, err := r.collection.Find(ctx, filter, opts)
-	if err != nil {
-		return nil, err
-	}
-	defer cursor.Close(ctx)
-
-	var entries []LeaderboardEntry
-	if err := cursor.All(ctx, &entries); err != nil {
-		return nil, err
-	}
-	return entries, nil
-}
-
-// GetUserStats returns statistics for a specific user
-func (r *LeaderboardRepository) GetUserStats(ctx context.Context, userID primitive.ObjectID) (*LeaderboardEntry, error) {
-	// Get the user's best score across all sessions
-	opts := options.FindOne().SetSort(bson.D{{Key: "score", Value: -1}})
-	var entry LeaderboardEntry
-	err := r.collection.FindOne(ctx, bson.M{"user_id": userID}, opts).Decode(&entry)
-	if err != nil {
-		return nil, err
-	}
-	return &entry, nil
-}
-
-// GetUserSessionEntry returns a user's entry for a specific session
-func (r *LeaderboardRepository) GetUserSessionEntry(ctx context.Context, userID primitive.ObjectID, sessionID string) (*LeaderboardEntry, error) {
-	var entry LeaderboardEntry
-	err := r.collection.FindOne(ctx, bson.M{
-		"user_id":    userID,
-		"session_id": sessionID,
-	}).Decode(&entry)
-	if err != nil {
-		return nil, err
-	}
-	return &entry, nil
-}
-
-// NewLeaderboardRepository creates a new leaderboard repository
-func NewLeaderboardRepository() *LeaderboardRepository {
-	return &LeaderboardRepository{
-		collection: Database.Collection("leaderboard"),
-	}
 }

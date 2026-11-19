@@ -483,7 +483,7 @@ func (gs *GameServer) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	client := &WebsocketClient{
 		ID:          uuid.New().String(),
 		UserID:      user.ID,
-		Username:    user.Username,
+		Username:    user.DisplayName(),
 		SessionID:   sessionID,
 		SessionName: session.Name,
 		Conn:        conn,

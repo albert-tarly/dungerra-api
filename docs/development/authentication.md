@@ -4,9 +4,37 @@ This document describes the authentication and authorization system for the mult
 
 ## Overview
 
-The server uses **Google OAuth 2.0** for user authentication and **JWT (JSON Web Tokens)** for session management. User data is persisted in **MongoDB**.
+The server supports two sign-in **providers**, each behind a feature switch:
 
-## Authentication Flow
+| Provider | Switch | Default | Identity |
+|----------|--------|---------|----------|
+| Google OAuth 2.0 | `GOOGLE_AUTH_ENABLED` | on when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set | Google account ID |
+| Local username + password | `LOCAL_AUTH_ENABLED` | on only when Google is disabled | lower-cased username |
+
+At least one provider must be enabled, or the server refuses to start. Routes of a disabled provider are not registered (they return `404`). Clients discover what to offer with `GET /api/v1/auth/providers` → `{ "google": bool, "local": bool }`.
+
+Whatever the provider, a successful sign-in yields a **JWT**, which authenticates every other request and the WebSocket connection. User data is persisted in the configured database (embedded SQLite or MongoDB, see [database.md](database.md)).
+
+### Accounts are separated by provider
+
+Every account belongs to exactly one provider and is identified by the pair `(provider, provider_id)`, which is unique. Accounts are **never merged** across providers: a Google user `alice` and a local user `alice` are two different accounts with separate progress and leaderboard entries.
+
+To keep them distinguishable for other players, local accounts are displayed with an `@local` suffix (`alice@local`) everywhere names are shown: in-game, on the leaderboard, and as session host. The stored `username` stays `alice`; the API exposes the shown name as `display_name`.
+
+### Local accounts
+
+- `POST /api/v1/auth/local/register` — `{ "username", "password" }` → `201 { token, user }`
+- `POST /api/v1/auth/local/login` — `{ "username", "password" }` → `200 { token, user }`
+
+Rules and behaviour:
+
+- Usernames: 3–24 characters, letters, digits, `_`, `-`, `.`; unique case-insensitively (`Alice` and `alice` are the same account). Login is case-insensitive on the username.
+- Passwords: 8–72 characters, stored only as a bcrypt hash (never returned by the API).
+- Uniqueness is enforced by the database, so concurrent registrations of the same name cannot both succeed (`409 Conflict`).
+- Wrong password and unknown username both return `401` with the same message and similar timing, so usernames cannot be probed through login.
+- There is no rate limiting yet; put the server behind a proxy with rate limits before enabling local accounts on a public deployment.
+
+## Google Authentication Flow
 
 ```
 ┌──────────┐                                    ┌──────────┐
@@ -31,7 +59,7 @@ The server uses **Google OAuth 2.0** for user authentication and **JWT (JSON Web
      │                                               │
      │                          6. Exchange code for token
      │                             Verify with Google
-     │                             Find/Create user in MongoDB
+     │                             Find/Create user (provider=google)
      │                             Generate JWT      │
      │                                               │
      │ 7. Redirect: {FRONTEND_URL}?token={jwt}       │
@@ -268,21 +296,28 @@ func ValidateToken(tokenString string) (primitive.ObjectID, error) {
 
 ```go
 type User struct {
-    ID             primitive.ObjectID  // MongoDB _id
-    Email          string              // User's email from Google
-    GoogleID       string              // Google user ID (unique)
-    Username       string              // Display name
-    IsActive       bool                // Account status
+    ID             primitive.ObjectID  // Generated ID (Mongo _id / SQLite hex string)
+    Provider       string              // "google" | "local"
+    ProviderID     string              // Google account ID, or lower-cased local username
+    Email          string              // Google accounts only
+    GoogleID       string              // Google accounts only (kept for backward compatibility)
+    Username       string              // Name as chosen/derived; see DisplayName()
+    PasswordHash   string              // bcrypt, local accounts only; never serialized
+    IsActive       bool                // Account status (inactive local accounts cannot log in)
     CreatedAt      time.Time           // Account creation time
     CurrentSession string              // Current game session ID (optional)
 }
+
+func (u *User) DisplayName() string // Username, plus "@local" for local accounts
 ```
 
-Stored in MongoDB collection: `users`
+Stored in the `users` collection/table. Constraints:
+- `(provider, provider_id)` unique — the account identity
+- `google_id` unique, sparse
 
-Indexes:
-- `email` (unique)
-- `google_id` (unique, sparse)
+Email is not unique: local accounts have none, and accounts of different providers are independent.
+
+**MongoDB migration:** on startup the server gives pre-existing users `provider: "google"` and `provider_id = google_id`, and drops the legacy unique `email_1` index. The migration is idempotent; if it fails, the server does not start.
 
 ### Game Session Model
 
@@ -304,7 +339,7 @@ type GameSession struct {
 }
 ```
 
-Stored in MongoDB collection: `game_sessions`
+Stored in the `game_sessions` collection/table.
 
 Indexes:
 - `host_id`
@@ -376,8 +411,8 @@ var upgrader = websocket.Upgrader{
 
 ### 5. Rate Limiting
 
-Consider adding rate limiting for:
-- Auth endpoints (prevent brute force)
+There is no built-in rate limiting yet. Add it (e.g. at the reverse proxy) for:
+- Auth endpoints, especially `/api/v1/auth/local/login` when local accounts are enabled publicly (prevent password brute force)
 - WebSocket connections (prevent DoS)
 
 ## Error Handling
@@ -387,8 +422,11 @@ Consider adding rate limiting for:
 | Error | HTTP Status | Cause | Solution |
 |-------|-------------|-------|----------|
 | Missing token | 401 | No token in request | Include `?token={jwt}` in WebSocket URL |
-| Invalid token | 401 | Malformed or tampered token | Re-authenticate with Google |
-| Expired token | 401 | Token past expiration time | Re-authenticate with Google |
+| Invalid token | 401 | Malformed or tampered token | Sign in again |
+| Expired token | 401 | Token past expiration time | Sign in again |
+| Invalid username or password | 401 | Local login with wrong credentials | Check credentials |
+| Username is already taken | 409 | Local registration with an existing name (case-insensitive) | Choose another name |
+| Validation message | 400 | Local registration with an invalid username/password | Follow the rules above |
 | User not found | 401 | User deleted from database | Re-authenticate to create new account |
 | Invalid signature | 401 | Wrong SECRET_KEY or tampered token | Check SECRET_KEY matches server |
 
@@ -424,6 +462,15 @@ curl http://localhost:8080/api/v1/auth/google/url
 # You'll be redirected with a token
 ```
 
+   **Test local accounts** (with `LOCAL_AUTH_ENABLED=true`):
+```bash
+curl http://localhost:8080/api/v1/auth/providers
+curl -X POST http://localhost:8080/api/v1/auth/local/register \
+  -H 'Content-Type: application/json' -d '{"username":"alice","password":"correct horse"}'
+curl -X POST http://localhost:8080/api/v1/auth/local/login \
+  -H 'Content-Type: application/json' -d '{"username":"alice","password":"correct horse"}'
+```
+
 2. **Test WebSocket with token:**
 ```bash
 # Use wscat or similar tool
@@ -440,19 +487,29 @@ ws.onopen = () => console.log('Authenticated successfully!');
 
 ### Automated Testing
 
-See `cmd/test-client/` for a full example of authenticated WebSocket client.
+```bash
+go test ./internal/auth ./internal/db
+```
+
+`internal/auth/local_test.go` covers registration, conflicts, case-insensitive login, wrong/unknown credentials and validation; `internal/db/store_test.go` covers provider identity and uniqueness on every storage backend.
 
 ## Environment Variables Reference
 
 ```bash
-# MongoDB
+# Database (see database.md)
+DB_DRIVER=sqlite                 # or mongodb
+SQLITE_PATH=data/dungerra.db
 MONGODB_URL=mongodb+srv://user:pass@cluster.mongodb.net/
 
 # JWT Configuration
 SECRET_KEY=<64-character-random-string>
 ACCESS_TOKEN_EXPIRE_MINUTES=11520
 
-# Google OAuth
+# Auth providers (at least one enabled)
+GOOGLE_AUTH_ENABLED=true         # default: true when Google credentials are set
+LOCAL_AUTH_ENABLED=false         # default: true only when Google is disabled
+
+# Google OAuth (required when GOOGLE_AUTH_ENABLED=true)
 GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=xxx
 
@@ -481,14 +538,24 @@ TLS_KEY=
 4. Add `http://localhost:8080/api/v1/auth/google/callback` to Authorized redirect URIs
 5. Ensure `API_BASE_URL` in `.env` matches exactly
 
-### "Failed to connect to MongoDB"
+### "No authentication provider enabled" / "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required"
 
-**Problem:** Server can't connect to MongoDB.
+**Problem:** The server exits at startup.
+
+**Solution:** Enable at least one provider. `GOOGLE_AUTH_ENABLED=true` requires both Google credentials; for a setup without Google, set `GOOGLE_AUTH_ENABLED=false` (local accounts are then enabled by default).
+
+### Google sign-in or local register/login returns 404
+
+**Problem:** The provider is disabled, so its routes are not registered. Check `GET /api/v1/auth/providers` and the `Auth providers: google=… local=…` line in the server log.
+
+### "Failed to open mongodb database"
+
+**Problem:** Server can't connect to MongoDB (or the startup user migration failed).
 
 **Solution:**
 1. Verify `MONGODB_URL` is correct
 2. Check MongoDB Atlas IP whitelist (allow your IP or use 0.0.0.0/0 for development)
-3. Verify database user has read/write permissions
+3. Verify database user has read/write permissions (and index-management rights for the migration)
 4. Test connection with MongoDB Compass
 
 ### "Invalid token" on WebSocket connection
@@ -506,16 +573,18 @@ TLS_KEY=
 **Problem:** OAuth succeeds but user lookup fails.
 
 **Solution:**
-1. Check MongoDB connection is working
-2. Verify `users` collection exists
+1. Check the database connection is working
+2. Verify `users` collection/table exists
 3. Check database indexes are created
 4. Look for errors in server logs
 
 ## Next Steps
 
 - [ ] Implement refresh tokens for extended sessions
-- [ ] Add email verification
-- [ ] Support additional OAuth providers (GitHub, Discord)
+- [ ] Rate limiting for local login/register
+- [ ] Reject existing tokens of a provider after it is disabled (currently valid until expiry)
+- [ ] Password change / reset for local accounts
+- [ ] Support additional OAuth providers (GitHub, Discord) — add a `Provider*` constant and handler; identity model already supports it
 - [ ] Implement role-based access control (admin, moderator)
 - [ ] Add two-factor authentication
 - [ ] Session management UI (view/revoke active sessions)

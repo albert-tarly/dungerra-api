@@ -1,19 +1,22 @@
 # Multiplayer Shooter Game Server
 
-A real-time authoritative multiplayer shooter game server written in Go with WebSocket support, Google OAuth authentication, and MongoDB persistence.
+A real-time authoritative multiplayer shooter game server written in Go with WebSocket support, Google OAuth authentication, and pluggable persistence (embedded SQLite or MongoDB).
 
 ## Features
 
 - **Authentication & Authorization**:
-  - Google OAuth 2.0 integration for user authentication
+  - Pluggable sign-in providers behind feature switches: Google OAuth 2.0 and local username/password accounts
   - JWT (JSON Web Token) based session management
-  - MongoDB user persistence with automatic account creation
+  - Persistent user accounts with automatic account creation
   - Secure WebSocket connections with token validation
 - **Authoritative Server Architecture**: All game logic runs on the server to prevent cheating
 - **Real-time Multiplayer**: WebSocket-based communication for low-latency gameplay
 - **Binary Protocol Support**: Optional Protocol Buffers encoding for 60% bandwidth reduction (see [Binary Protocol section](docs/development/binary-protocol.md))
 - **Database Persistence**:
-  - MongoDB integration for user data and game sessions
+  - Two interchangeable backends, selected with `DB_DRIVER`:
+    - `sqlite` — embedded single-file database (pure Go, no CGO), ideal for local/desktop builds
+    - `mongodb` — for hosted deployments
+  - See [Database documentation](docs/development/database.md) and [Authentication documentation](docs/development/authentication.md)
   - User profiles with stats, progress tracking
   - Game session management and state persistence
 - **Core Game Mechanics**:
@@ -40,11 +43,15 @@ dungerra/
 ├── internal/
 │   ├── auth/
 │   │   ├── jwt.go                  # JWT token generation and validation
-│   │   └── google.go               # Google OAuth integration
+│   │   ├── google.go               # Google OAuth provider
+│   │   ├── local.go                # Local username + password provider
+│   │   └── user.go                 # Provider-independent endpoints (/auth/user, /auth/providers)
 │   ├── config/
 │   │   └── config.go               # Configuration management
 │   ├── db/
-│   │   ├── connection.go           # MongoDB connection
+│   │   ├── store.go                # Repository interfaces + backend selection
+│   │   ├── mongo.go                # MongoDB backend
+│   │   ├── sqlite.go               # Embedded SQLite backend (schema migrations included)
 │   │   └── models.go               # Database models (User, GameSession)
 │   ├── game/
 │   │   ├── engine.go               # Game logic and physics
@@ -63,8 +70,8 @@ dungerra/
 ## Prerequisites
 
 - Go 1.21 or higher
-- MongoDB (Atlas or local instance)
-- Google OAuth credentials ([Get them here](https://console.cloud.google.com/))
+- MongoDB (Atlas or local instance) — only when `DB_DRIVER=mongodb`; otherwise the server uses an embedded SQLite file and needs no database setup
+- Google OAuth credentials ([Get them here](https://console.cloud.google.com/)) — only when `GOOGLE_AUTH_ENABLED=true`; local username/password accounts need no external setup
 - Git (for dependency management)
 
 ## Installation
@@ -90,13 +97,22 @@ cp .env.example .env
 Edit `.env` with your configuration:
 
 ```bash
-# MongoDB Connection
-MONGODB_URL=mongodb+srv://username:password@cluster.mongodb.net/
+# Database backend: "sqlite" (embedded) or "mongodb" (hosted).
+# If unset: mongodb when MONGODB_URL is set, otherwise sqlite.
+DB_DRIVER=sqlite
+SQLITE_PATH=data/dungerra.db          # used when DB_DRIVER=sqlite
+MONGODB_URL=mongodb+srv://username:password@cluster.mongodb.net/   # used when DB_DRIVER=mongodb
 
 # JWT Secret (generate with: openssl rand -base64 64)
 SECRET_KEY=your-secret-key-here
 
-# Google OAuth Credentials
+# Authentication providers (at least one must be enabled)
+# GOOGLE_AUTH_ENABLED defaults to true when both Google credentials are set.
+# LOCAL_AUTH_ENABLED (username + password accounts) defaults to true only when Google is disabled.
+GOOGLE_AUTH_ENABLED=true
+LOCAL_AUTH_ENABLED=false
+
+# Google OAuth Credentials (required when GOOGLE_AUTH_ENABLED=true)
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
 
@@ -138,6 +154,13 @@ The server will start on `http://localhost:8080`
 
 ### Authentication
 
+Accounts belong to exactly one provider and are never merged across providers. Local accounts are shown to other players with an `@local` suffix (e.g. `alice@local`) so they can't be mistaken for Google users.
+
+- **Enabled Providers**: `GET /api/v1/auth/providers`
+  - Returns: `{ "google": true, "local": false }` — use it to decide which sign-in options to show
+
+#### Google (when `GOOGLE_AUTH_ENABLED`)
+
 - **Get Google Auth URL**: `GET /api/v1/auth/google/url`
   - Returns: `{ "url": "https://accounts.google.com/...", "state": "..." }`
   - Use this URL to redirect users to Google login
@@ -145,6 +168,18 @@ The server will start on `http://localhost:8080`
   - Handles the OAuth callback from Google
   - Creates/finds user in database
   - Returns JWT token by redirecting to: `{FRONTEND_URL}?token={jwt}`
+
+#### Local accounts (when `LOCAL_AUTH_ENABLED`)
+
+- **Register**: `POST /api/v1/auth/local/register` with `{ "username": "alice", "password": "..." }`
+  - Username: 3–24 characters, letters/digits/`_`/`-`/`.`, unique case-insensitively
+  - Password: 8–72 characters (stored as a bcrypt hash)
+  - Returns `201 { "token": "<jwt>", "user": { ... } }`; `409` if the username is taken, `400` if invalid
+- **Login**: `POST /api/v1/auth/local/login` with `{ "username": "alice", "password": "..." }`
+  - Returns `200 { "token": "<jwt>", "user": { ... } }`; `401` on wrong credentials
+
+#### Any provider
+
 - **Get Current User**: `GET /api/v1/auth/user`
   - Headers: `Authorization: Bearer {jwt}`
   - Returns current authenticated user information
@@ -152,9 +187,11 @@ The server will start on `http://localhost:8080`
     ```json
     {
       "id": "507f1f77bcf86cd799439011",
+      "provider": "google",
       "email": "user@example.com",
       "google_id": "1234567890",
       "username": "user",
+      "display_name": "user",
       "is_active": true,
       "created_at": "2025-01-01T00:00:00Z",
       "current_session": "507f1f77bcf86cd799439012"
@@ -181,8 +218,8 @@ const ws = new WebSocket(
 **Session Behavior**:
 
 - If no `sessionId` is provided, a new session is automatically created
-- When the first player joins a session, game state is loaded from MongoDB (if it exists)
-- When the last player leaves a session, game state is saved to MongoDB and cleared from memory
+- When the first player joins a session, game state is loaded from the database (if it exists)
+- When the last player leaves a session, game state is saved to the database and cleared from memory
 - Each session has its own independent chunk generation, enemies, bonuses, and game world
 - Multiple sessions can run simultaneously without interfering with each other
 

@@ -153,20 +153,21 @@ func (e *Engine) LoadFromSession(session *db.GameSession) {
 				shop = types.GenerateShop(shop.Position)
 			} else {
 				// Parse inventory from properties
-				if inventory, ok := obj.Properties["inventory"].(map[string]interface{}); ok {
+				if inventory, ok := asStringMap(obj.Properties["inventory"]); ok {
 					shop.Inventory = make(map[types.InventoryItemID]*types.ShopInventoryItem)
 					for itemIDStr, itemData := range inventory {
 						var itemID types.InventoryItemID
 						fmt.Sscanf(itemIDStr, "%d", &itemID)
-						if itemMap, ok := itemData.(map[string]interface{}); ok {
+						if itemMap, ok := asStringMap(itemData); ok {
+							// Numbers decode as int32 from BSON but float64 from JSON (SQLite)
 							item := &types.ShopInventoryItem{}
-							if price, ok := itemMap["price"].(int32); ok {
+							if price, ok := toInt64(itemMap["price"]); ok {
 								item.Price = int(price)
 							}
-							if quantity, ok := itemMap["quantity"].(int32); ok {
+							if quantity, ok := toInt64(itemMap["quantity"]); ok {
 								item.Quantity = int(quantity)
 							}
-							if packSize, ok := itemMap["pack_size"].(int32); ok {
+							if packSize, ok := toInt64(itemMap["pack_size"]); ok {
 								item.PackSize = int(packSize)
 							}
 							shop.Inventory[itemID] = item
@@ -418,6 +419,19 @@ func toInt64(value interface{}) (int64, bool) {
 		return int64(v), true
 	}
 	return 0, false
+}
+
+// asStringMap normalises an embedded document decoded from BSON or JSON
+func asStringMap(value interface{}) (map[string]interface{}, bool) {
+	switch v := value.(type) {
+	case map[string]interface{}:
+		return v, true
+	case primitive.M:
+		return v, true
+	case primitive.D:
+		return v.Map(), true
+	}
+	return nil, false
 }
 
 // parseBonusInventory restores a bonus inventory saved by SaveToSession

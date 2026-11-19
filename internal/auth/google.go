@@ -5,14 +5,16 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/besuhoff/dungerra/internal/config"
 	"github.com/besuhoff/dungerra/internal/db"
-	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -20,7 +22,7 @@ import (
 // GoogleAuthHandler handles Google OAuth authentication
 type GoogleAuthHandler struct {
 	config   *oauth2.Config
-	userRepo *db.UserRepository
+	userRepo db.UserRepository
 }
 
 // NewGoogleAuthHandler creates a new Google auth handler
@@ -90,38 +92,16 @@ func (h *GoogleAuthHandler) HandleCallback(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Find or create user in database
-	user, err := h.userRepo.FindByGoogleID(ctx, userInfo.ID)
+	if userInfo.ID == "" {
+		http.Error(w, "Failed to get user info", http.StatusInternalServerError)
+		return
+	}
+
+	user, err := h.findOrCreateUser(ctx, userInfo)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			// Create new user
-			username := userInfo.Email
-			if len(username) > 0 {
-				// Extract username from email
-				if idx := len(username); idx > 0 {
-					for i, c := range username {
-						if c == '@' {
-							username = username[:i]
-							break
-						}
-					}
-				}
-			}
-
-			user = &db.User{
-				Email:    userInfo.Email,
-				GoogleID: userInfo.ID,
-				Username: username,
-			}
-
-			if err := h.userRepo.Create(ctx, user); err != nil {
-				http.Error(w, "Failed to create user", http.StatusInternalServerError)
-				return
-			}
-		} else {
-			http.Error(w, "Database error", http.StatusInternalServerError)
-			return
-		}
+		log.Printf("Google sign-in failed: %v", err)
+		http.Error(w, "Failed to sign in", http.StatusInternalServerError)
+		return
 	}
 
 	// Generate JWT token
@@ -134,6 +114,29 @@ func (h *GoogleAuthHandler) HandleCallback(w http.ResponseWriter, r *http.Reques
 	// Redirect to frontend with token
 	redirectURL := fmt.Sprintf("%s?token=%s", config.AppConfig.FrontendURL, url.QueryEscape(jwtToken))
 	http.Redirect(w, r, redirectURL, http.StatusFound)
+}
+
+// findOrCreateUser returns the Google account for userInfo, creating it on first sign-in.
+func (h *GoogleAuthHandler) findOrCreateUser(ctx context.Context, userInfo *GoogleUserInfo) (*db.User, error) {
+	user, err := h.userRepo.FindByProvider(ctx, db.ProviderGoogle, userInfo.ID)
+	if !errors.Is(err, db.ErrNotFound) {
+		return user, err
+	}
+
+	username, _, _ := strings.Cut(userInfo.Email, "@")
+	user = &db.User{
+		Provider:   db.ProviderGoogle,
+		ProviderID: userInfo.ID,
+		Email:      userInfo.Email,
+		GoogleID:   userInfo.ID,
+		Username:   username,
+	}
+	err = h.userRepo.Create(ctx, user)
+	if errors.Is(err, db.ErrDuplicate) {
+		// A concurrent first sign-in created it in the meantime.
+		return h.userRepo.FindByProvider(ctx, db.ProviderGoogle, userInfo.ID)
+	}
+	return user, err
 }
 
 // GoogleUserInfo represents user information from Google
@@ -174,43 +177,4 @@ func generateRandomState() (string, error) {
 		return "", err
 	}
 	return base64.URLEncoding.EncodeToString(b), nil
-}
-
-// HandleGetUser returns the current authenticated user's information
-func (h *GoogleAuthHandler) HandleGetUser(w http.ResponseWriter, r *http.Request) {
-	// Extract token from Authorization header
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		http.Error(w, "Missing authorization header", http.StatusUnauthorized)
-		return
-	}
-
-	// Remove "Bearer " prefix
-	token := authHeader
-	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-		token = authHeader[7:]
-	}
-
-	// Validate JWT token
-	userID, err := ValidateToken(token)
-	if err != nil {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
-		return
-	}
-
-	// Fetch user from database
-	ctx := context.Background()
-	user, err := h.userRepo.FindByID(ctx, userID)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			http.Error(w, "User not found", http.StatusNotFound)
-		} else {
-			http.Error(w, "Database error", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	// Return user info
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
 }

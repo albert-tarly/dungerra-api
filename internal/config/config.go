@@ -12,10 +12,14 @@ import (
 const GameVersion = "1.4.0"
 
 type Config struct {
+	DBDriver                 string // "mongodb" or "sqlite"
 	MongoDBURL               string
+	SQLitePath               string
 	SecretKey                string
 	GoogleClientID           string
 	GoogleClientSecret       string
+	GoogleAuthEnabled        bool // GOOGLE_AUTH_ENABLED
+	LocalAuthEnabled         bool // LOCAL_AUTH_ENABLED: username + password accounts
 	APIBaseURL               string
 	FrontendURL              string
 	AccessTokenExpireMinutes int
@@ -53,7 +57,9 @@ func LoadConfig() *Config {
 	}
 
 	config := &Config{
+		DBDriver:                 getEnvOrDefault("DB_DRIVER", ""),
 		MongoDBURL:               getEnvOrDefault("MONGODB_URL", ""),
+		SQLitePath:               getEnvOrDefault("SQLITE_PATH", "data/dungerra.db"),
 		SecretKey:                getEnvOrDefault("SECRET_KEY", ""),
 		GoogleClientID:           getEnvOrDefault("GOOGLE_CLIENT_ID", ""),
 		GoogleClientSecret:       getEnvOrDefault("GOOGLE_CLIENT_SECRET", ""),
@@ -68,21 +74,61 @@ func LoadConfig() *Config {
 	}
 
 	// Validate required fields
-	if config.MongoDBURL == "" {
-		log.Fatal("MONGODB_URL is required")
+	// Storage backend. When DB_DRIVER is not set, existing deployments that
+	// configure MONGODB_URL keep using MongoDB; otherwise the embedded SQLite
+	// store is used so the server runs with zero external dependencies.
+	if config.DBDriver == "" {
+		if config.MongoDBURL != "" {
+			config.DBDriver = "mongodb"
+		} else {
+			config.DBDriver = "sqlite"
+		}
+	}
+	switch config.DBDriver {
+	case "mongodb":
+		if config.MongoDBURL == "" {
+			log.Fatal("MONGODB_URL is required when DB_DRIVER=mongodb")
+		}
+	case "sqlite":
+		if config.SQLitePath == "" {
+			log.Fatal("SQLITE_PATH must not be empty when DB_DRIVER=sqlite")
+		}
+	default:
+		log.Fatalf("Unsupported DB_DRIVER %q (expected \"mongodb\" or \"sqlite\")", config.DBDriver)
 	}
 	if config.SecretKey == "" {
 		log.Fatal("SECRET_KEY is required")
 	}
-	if config.GoogleClientID == "" {
-		log.Fatal("GOOGLE_CLIENT_ID is required")
+
+	// Auth providers. Google defaults to on when its credentials are present
+	// (so existing deployments are unchanged); local accounts default to on
+	// only when Google is off, so a fresh/desktop setup is usable out of the box.
+	hasGoogleCreds := config.GoogleClientID != "" && config.GoogleClientSecret != ""
+	config.GoogleAuthEnabled = getEnvBool("GOOGLE_AUTH_ENABLED", hasGoogleCreds)
+	config.LocalAuthEnabled = getEnvBool("LOCAL_AUTH_ENABLED", !config.GoogleAuthEnabled)
+	if config.GoogleAuthEnabled && !hasGoogleCreds {
+		log.Fatal("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required when GOOGLE_AUTH_ENABLED=true")
 	}
-	if config.GoogleClientSecret == "" {
-		log.Fatal("GOOGLE_CLIENT_SECRET is required")
+	if !config.GoogleAuthEnabled && !config.LocalAuthEnabled {
+		log.Fatal("No authentication provider enabled: set GOOGLE_AUTH_ENABLED and/or LOCAL_AUTH_ENABLED")
 	}
 
 	AppConfig = config
 	return config
+}
+
+// getEnvBool parses a boolean env var (true/false/1/0/...), falling back to
+// defaultValue when unset. An unparsable value is a configuration error.
+func getEnvBool(key string, defaultValue bool) bool {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return defaultValue
+	}
+	v, err := strconv.ParseBool(raw)
+	if err != nil {
+		log.Fatalf("%s must be true or false, got %q", key, raw)
+	}
+	return v
 }
 
 func getEnvOrDefault(key, defaultValue string) string {
