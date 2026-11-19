@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/besuhoff/dungeon-game-go/internal/db"
+	"github.com/besuhoff/dungerra/internal/db"
 )
 
 // LeaderboardHandler handles leaderboard-related HTTP requests

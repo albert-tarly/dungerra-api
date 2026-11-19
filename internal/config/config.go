@@ -168,16 +168,17 @@ const (
 	EnemyLieutenantShootDelay       = 0.5  // Seconds
 	EnemyLieutenantReward           = 50.0 // Money reward
 	EnemyLieutenantDropChance       = 0.5  // 50% chance to drop bonus
-	EnemyLieutenantDropChanceWeapon = 0.3  // 30% chance to drop weapon if dropping bonus
+	EnemyLieutenantDropChanceWeapon = 0.3  // 30% chance to drop a shotgun if dropping bonus
 
 	// Enemy sniper constants
-	EnemySniperSpeed             = 20.0 // Units per second
 	EnemySniperLives             = 2.0
 	EnemySniperShootDelay        = 2.5   // Seconds
 	EnemySniperReward            = 100.0 // Money reward
-	EnemySniperDropChanceAmmo    = 0.5   // 50% chance to drop ammo
-	EnemySniperDropChanceWeapon  = 0.5   // 50% chance to drop weapon
-	EnemySniperDropChanceGoogles = 0.75  // 75% chance to drop goggles
+	EnemySniperDropChanceAmmo    = 0.5   // 50% chance to drop railgun ammo
+	EnemySniperAmmoMinQuantity   = 5
+	EnemySniperAmmoMaxQuantity   = 20
+	EnemySniperDropChanceWeapon  = 0.5  // 50% chance to drop a railgun
+	EnemySniperDropChanceGoggles = 0.75 // 75% chance to drop goggles
 	EnemySniperGunEndOffsetX     = 0.0
 	EnemySniperGunEndOffsetY     = 33.0
 

@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/besuhoff/dungeon-game-go/internal/config"
-	"github.com/besuhoff/dungeon-game-go/internal/db"
+	"github.com/besuhoff/dungerra/internal/config"
+	"github.com/besuhoff/dungerra/internal/db"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -146,7 +146,7 @@ type GoogleUserInfo struct {
 // getUserInfo fetches user information from Google
 func (h *GoogleAuthHandler) getUserInfo(ctx context.Context, token *oauth2.Token) (*GoogleUserInfo, error) {
 	client := h.config.Client(ctx, token)
-	
+
 	// Use the token to get user info
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
 	if err != nil {

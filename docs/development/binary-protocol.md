@@ -93,7 +93,7 @@ ws.onmessage = (event) => {
 
 ```go
 import (
-  "github.com/besuhoff/dungeon-game-go/internal/protocol"
+  "github.com/besuhoff/dungerra/internal/protocol"
   "google.golang.org/protobuf/proto"
 )
 

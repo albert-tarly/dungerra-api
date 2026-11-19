@@ -12,11 +12,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/besuhoff/dungeon-game-go/internal/auth"
-	"github.com/besuhoff/dungeon-game-go/internal/config"
-	"github.com/besuhoff/dungeon-game-go/internal/db"
-	"github.com/besuhoff/dungeon-game-go/internal/handlers"
-	"github.com/besuhoff/dungeon-game-go/internal/server"
+	"github.com/besuhoff/dungerra/internal/auth"
+	"github.com/besuhoff/dungerra/internal/config"
+	"github.com/besuhoff/dungerra/internal/db"
+	"github.com/besuhoff/dungerra/internal/handlers"
+	"github.com/besuhoff/dungerra/internal/server"
 )
 
 var (

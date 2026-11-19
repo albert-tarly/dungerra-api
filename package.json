@@ -1,5 +1,5 @@
 {
-  "name": "dungeon-game-go",
+  "name": "dungerra",
   "version": "1.1.1",
   "description": "Dungeon game with protobuf support",
   "main": "dist/index.ts",

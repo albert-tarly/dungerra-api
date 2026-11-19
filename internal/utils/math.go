@@ -3,7 +3,7 @@ package utils
 import (
 	"math"
 
-	"github.com/besuhoff/dungeon-game-go/internal/config"
+	"github.com/besuhoff/dungerra/internal/config"
 )
 
 // Collision detection helpers

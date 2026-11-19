@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/besuhoff/dungeon-game-go/internal/config"
+	"github.com/besuhoff/dungerra/internal/config"
 	"github.com/google/uuid"
 )
 

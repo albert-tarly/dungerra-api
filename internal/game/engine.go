@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/besuhoff/dungeon-game-go/internal/config"
-	"github.com/besuhoff/dungeon-game-go/internal/protocol"
-	"github.com/besuhoff/dungeon-game-go/internal/types"
-	"github.com/besuhoff/dungeon-game-go/internal/utils"
+	"github.com/besuhoff/dungerra/internal/config"
+	"github.com/besuhoff/dungerra/internal/protocol"
+	"github.com/besuhoff/dungerra/internal/types"
+	"github.com/besuhoff/dungerra/internal/utils"
 	"github.com/google/uuid"
 )
 
@@ -881,6 +881,8 @@ func (e *Engine) Update() {
 	}
 
 	checkedEnemies := 0
+	// Snipers that kept aiming this tick; any other laser ray is stale
+	activeRayOwners := make(map[string]bool)
 
 	// Update enemies
 	for enemyChunkKey := range playersChunks {
@@ -1062,6 +1064,7 @@ func (e *Engine) Update() {
 
 						e.state.rays[enemy.ID] = ray
 					}
+					activeRayOwners[enemy.ID] = true
 				}
 
 				// Shoot at player
@@ -1208,6 +1211,14 @@ func (e *Engine) Update() {
 		}
 	}
 
+	// Drop laser rays whose sniper didn't aim this tick: target died or left,
+	// sniper died, or no living player is near enough for its chunk to be updated
+	for ownerID := range e.state.rays {
+		if !activeRayOwners[ownerID] {
+			delete(e.state.rays, ownerID)
+		}
+	}
+
 	if e.debugMode {
 		updateDuration = time.Since(now)
 		e.stats.TotalUpdateTime.enemies += updateDuration
@@ -1222,17 +1233,19 @@ func (e *Engine) Update() {
 		}
 
 		bullet.IsJustSpawned = false
-		if bullet.WeaponType == types.WeaponTypeShotgun || bullet.WeaponType == types.WeaponTypeRailgun {
-			bullet.IsActive = false
-			bullet.DeletedAt = time.Now()
-			continue
-		}
 
-		// Check if bonus was picked up and needs cleanup
+		// Clean up deactivated bullets once the cache timeout has passed
 		if !bullet.DeletedAt.IsZero() {
 			if time.Since(bullet.DeletedAt) > config.DeadEntitiesCacheTimeout {
 				delete(e.state.bullets, bullet.ID)
 			}
+			continue
+		}
+
+		// Hitscan shots (shotgun pellets, railgun beams) live for a single tick
+		if bullet.WeaponType == types.WeaponTypeShotgun || bullet.WeaponType == types.WeaponTypeRailgun {
+			bullet.IsActive = false
+			bullet.DeletedAt = time.Now()
 			continue
 		}
 
@@ -1696,7 +1709,7 @@ func (e *Engine) applyRocketExplosionDamage(explosionCenter *types.Vector2, hitO
 	}
 
 	for _, player := range e.state.players {
-		if !player.IsConnected || !player.IsAlive || hitObjectIDs[player.ID] {
+		if !player.IsConnected || !player.IsAlive || hitObjectIDs[player.ID] || player.InvulnerableTimer > 0 {
 			continue
 		}
 
@@ -1727,15 +1740,48 @@ func (e *Engine) applyRocketExplosionDamage(explosionCenter *types.Vector2, hitO
 // spawnBonus creates a bonus at the given position
 func (e *Engine) spawnBonus(enemy *types.Enemy) {
 	// Maybe spawn bonus
-	if (enemy.Type == types.EnemyTypeSoldier || enemy.Type == types.EnemyTypeLieutenant) &&
-		rand.Float64() >= config.EnemySoldierDropChance {
-		return
+	switch enemy.Type {
+	case types.EnemyTypeSoldier:
+		if rand.Float64() >= config.EnemySoldierDropChance {
+			return
+		}
+	case types.EnemyTypeLieutenant:
+		if rand.Float64() >= config.EnemyLieutenantDropChance {
+			return
+		}
 	}
 
 	var bonusType string
 	inventory := []types.InventoryItem{}
 
-	if enemy.Type == types.EnemyTypeTower {
+	switch {
+	case enemy.Type == types.EnemyTypeSniper:
+		bonusType = types.BonusTypeChest
+
+		if rand.Float64() < config.EnemySniperDropChanceAmmo {
+			inventory = append(inventory, types.InventoryItem{
+				Type:     types.InventoryItemRailgunAmmo,
+				Quantity: int32(config.EnemySniperAmmoMinQuantity + rand.Intn(config.EnemySniperAmmoMaxQuantity-config.EnemySniperAmmoMinQuantity+1)),
+			})
+		}
+
+		if rand.Float64() < config.EnemySniperDropChanceWeapon {
+			inventory = append(inventory, types.InventoryItem{Type: types.InventoryItemRailgun, Quantity: 1})
+		}
+
+		if rand.Float64() < config.EnemySniperDropChanceGoggles {
+			inventory = append(inventory, types.InventoryItem{Type: types.InventoryItemGoggles, Quantity: 1})
+		}
+
+		if len(inventory) == 0 {
+			return // Nothing rolled, no chest
+		}
+
+	case enemy.Type == types.EnemyTypeLieutenant && rand.Float64() < config.EnemyLieutenantDropChanceWeapon:
+		bonusType = types.BonusTypeChest
+		inventory = []types.InventoryItem{{Type: types.InventoryItemShotgun, Quantity: 1}}
+
+	case enemy.Type == types.EnemyTypeTower:
 		bonusType = types.BonusTypeChest
 
 		ammoItems := []types.InventoryItemID{
@@ -1745,7 +1791,7 @@ func (e *Engine) spawnBonus(enemy *types.Enemy) {
 		}
 
 		for _, itemID := range ammoItems {
-			if rand.Float64() >= config.TowerAmmoProbability {
+			if rand.Float64() < config.TowerAmmoProbability {
 				inventory = append(inventory, types.InventoryItem{
 					Type:     itemID,
 					Quantity: int32(config.TowerAmmoMinQuantity + rand.Intn(config.TowerAmmoMaxQuantity-config.TowerAmmoMinQuantity+1)),
@@ -1767,7 +1813,7 @@ func (e *Engine) spawnBonus(enemy *types.Enemy) {
 			})
 		}
 
-	} else {
+	default:
 		bonusType = types.BonusTypeAidKit
 		inventoryItemID := types.InventoryItemAidKit
 		if rand.Float64() < config.EnemySoldierDropChanceGoggles {
@@ -2109,19 +2155,26 @@ func (e *Engine) GetGameStateDeltaForPlayer(playerID string) *protocol.GameState
 
 	for _, ray := range e.state.rays {
 		prev, prevExists := prevState.rays[ray.ID]
+		isVisible := ray.IsVisibleToPlayer(player)
+
 		if !prevExists {
-			delta.AddedRays[ray.ID] = protocol.ToProtoRay(ray)
-		} else {
-			if ray.IsVisibleToPlayer(player) {
-				rayUpdate := protocol.ToProtoRayUpdate(prev, ray)
-				if rayUpdate != nil {
-					delta.UpdatedRays[ray.ID] = rayUpdate
-				}
-			} else {
-				delta.RemovedRays = append(delta.RemovedRays, ray.ID)
+			// Only announce rays the player can see: prevState tracks visible rays only,
+			// so an invisible ray sent here would never get a matching removal.
+			if isVisible {
+				delta.AddedRays[ray.ID] = protocol.ToProtoRay(ray)
 			}
-			delete(prevState.rays, ray.ID)
+			continue
 		}
+
+		if isVisible {
+			rayUpdate := protocol.ToProtoRayUpdate(prev, ray)
+			if rayUpdate != nil {
+				delta.UpdatedRays[ray.ID] = rayUpdate
+			}
+		} else {
+			delta.RemovedRays = append(delta.RemovedRays, ray.ID)
+		}
+		delete(prevState.rays, ray.ID)
 	}
 
 	for id := range prevState.rays {

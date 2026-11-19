@@ -12,12 +12,12 @@ import (
 	"github.com/gorilla/websocket"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/besuhoff/dungeon-game-go/internal/auth"
-	"github.com/besuhoff/dungeon-game-go/internal/config"
-	"github.com/besuhoff/dungeon-game-go/internal/db"
-	"github.com/besuhoff/dungeon-game-go/internal/game"
-	"github.com/besuhoff/dungeon-game-go/internal/protocol"
-	"github.com/besuhoff/dungeon-game-go/internal/types"
+	"github.com/besuhoff/dungerra/internal/auth"
+	"github.com/besuhoff/dungerra/internal/config"
+	"github.com/besuhoff/dungerra/internal/db"
+	"github.com/besuhoff/dungerra/internal/game"
+	"github.com/besuhoff/dungerra/internal/protocol"
+	"github.com/besuhoff/dungerra/internal/types"
 )
 
 var upgrader = websocket.Upgrader{

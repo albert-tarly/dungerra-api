@@ -3,7 +3,7 @@ package protocol
 import (
 	"maps"
 
-	"github.com/besuhoff/dungeon-game-go/internal/types"
+	"github.com/besuhoff/dungerra/internal/types"
 )
 
 // ToProtoVector2 converts types.Vector2 to proto Vector2

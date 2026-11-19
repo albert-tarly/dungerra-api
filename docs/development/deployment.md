@@ -17,7 +17,7 @@
 sudo certbot certonly --standalone -d yourdomain.com
 
 # Run server on port 443
-sudo ./dungeon-game-go \
+sudo ./dungerra \
   -host 0.0.0.0 \
   -port 443 \
   -tls \
@@ -36,7 +36,7 @@ export TLS_CERT=/path/to/cert.pem
 export TLS_KEY=/path/to/key.pem
 
 # Run with sudo
-sudo -E ./dungeon-game-go
+sudo -E ./dungerra
 ```
 
 ### Method 2: Using Reverse Proxy (Recommended for Flexibility)
@@ -81,7 +81,7 @@ server {
 Start your game server normally:
 
 ```bash
-./dungeon-game-go -port 8080
+./dungerra -port 8080
 ```
 
 #### Caddy Configuration (Automatic HTTPS)
@@ -127,10 +127,10 @@ Allow the binary to bind to privileged ports without root:
 
 ```bash
 # Build the binary
-go build -o /usr/local/bin/dungeon-game-go
+go build -o /usr/local/bin/dungerra
 
 # Set capabilities
-sudo setcap 'cap_net_bind_service=+ep' /usr/local/bin/dungeon-game-go
+sudo setcap 'cap_net_bind_service=+ep' /usr/local/bin/dungerra
 ```
 
 Create systemd service `/etc/systemd/system/dungeon-game.service`:
@@ -149,7 +149,7 @@ Environment="PORT=443"
 Environment="USE_TLS=true"
 Environment="TLS_CERT=/etc/letsencrypt/live/yourdomain.com/fullchain.pem"
 Environment="TLS_KEY=/etc/letsencrypt/live/yourdomain.com/privkey.pem"
-ExecStart=/usr/local/bin/dungeon-game-go
+ExecStart=/usr/local/bin/dungerra
 Restart=always
 RestartSec=10
 
@@ -168,7 +168,7 @@ sudo systemctl status dungeon-game
 ## Command Line Options
 
 ```bash
-./dungeon-game-go [options]
+./dungerra [options]
 
 Options:
   -port string
@@ -205,13 +205,13 @@ TLS_KEY=/path/key.pem      # Private key file
 ### Development (HTTP on 8080)
 
 ```bash
-./dungeon-game-go
+./dungerra
 ```
 
 ### Production (HTTPS on 443)
 
 ```bash
-sudo ./dungeon-game-go -host 0.0.0.0 -port 443 -tls \
+sudo ./dungerra -host 0.0.0.0 -port 443 -tls \
   -cert /etc/certs/cert.pem \
   -key /etc/certs/key.pem
 ```
@@ -220,13 +220,13 @@ sudo ./dungeon-game-go -host 0.0.0.0 -port 443 -tls \
 
 ```bash
 # Let the load balancer handle HTTPS
-./dungeon-game-go -port 8080
+./dungerra -port 8080
 ```
 
 ### Custom Port with TLS
 
 ```bash
-./dungeon-game-go -port 8443 -tls \
+./dungerra -port 8443 -tls \
   -cert ./certs/cert.pem \
   -key ./certs/key.pem
 ```
@@ -247,7 +247,7 @@ Generate self-signed certificate for testing:
 ```bash
 openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"
 
-./dungeon-game-go -port 8443 -tls -cert cert.pem -key key.pem
+./dungerra -port 8443 -tls -cert cert.pem -key key.pem
 ```
 
 Connect with (ignore self-signed warning in development):

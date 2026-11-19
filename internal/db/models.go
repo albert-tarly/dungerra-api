@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/besuhoff/dungeon-game-go/internal/config"
+	"github.com/besuhoff/dungerra/internal/config"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"

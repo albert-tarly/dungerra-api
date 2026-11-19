@@ -3,7 +3,7 @@ package types
 import (
 	"time"
 
-	"github.com/besuhoff/dungeon-game-go/internal/config"
+	"github.com/besuhoff/dungerra/internal/config"
 )
 
 // GameState represents the current state of the game
@@ -160,7 +160,7 @@ var EnemySpeedByType = map[string]float64{
 	EnemyTypeSoldier:    config.EnemySoldierSpeed,
 	EnemyTypeLieutenant: config.EnemySoldierSpeed,
 	EnemyTypeTower:      0.0,
-	EnemyTypeSniper:     config.EnemySniperSpeed,
+	EnemyTypeSniper:     0.0, // Snipers hold their post
 }
 
 var EnemySizeByType = map[string]float64{

@@ -4,7 +4,7 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/besuhoff/dungeon-game-go/internal/config"
+	"github.com/besuhoff/dungerra/internal/config"
 	"github.com/google/uuid"
 )
 
@@ -48,7 +48,7 @@ func GenerateShop(position *Vector2) *Shop {
 	}
 
 	for _, itemID := range ammoItems {
-		if rand.Float64() >= config.ShopAmmoProbability {
+		if rand.Float64() < config.ShopAmmoProbability {
 
 			packSize, exists := ShopItemPackSize[itemID]
 			if !exists {

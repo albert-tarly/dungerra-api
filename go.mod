@@ -1,4 +1,4 @@
-module github.com/besuhoff/dungeon-game-go
+module github.com/besuhoff/dungerra
 
 go 1.24.0
 

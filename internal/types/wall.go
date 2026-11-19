@@ -3,7 +3,7 @@ package types
 import (
 	"math"
 
-	"github.com/besuhoff/dungeon-game-go/internal/config"
+	"github.com/besuhoff/dungerra/internal/config"
 )
 
 // Wall represents a wall obstacle

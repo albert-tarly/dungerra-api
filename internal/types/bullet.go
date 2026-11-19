@@ -3,8 +3,8 @@ package types
 import (
 	"time"
 
-	"github.com/besuhoff/dungeon-game-go/internal/config"
-	"github.com/besuhoff/dungeon-game-go/internal/utils"
+	"github.com/besuhoff/dungerra/internal/config"
+	"github.com/besuhoff/dungerra/internal/utils"
 )
 
 // Bullet represents a projectile in the game

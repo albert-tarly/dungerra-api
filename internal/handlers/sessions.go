@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/besuhoff/dungeon-game-go/internal/auth"
-	"github.com/besuhoff/dungeon-game-go/internal/db"
+	"github.com/besuhoff/dungerra/internal/auth"
+	"github.com/besuhoff/dungerra/internal/db"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -203,7 +203,7 @@ func (h *SessionHandler) HandleJoinSession(w http.ResponseWriter, r *http.Reques
 		if p.IsConnected {
 			connectedPlayersCount++
 		}
-	} 
+	}
 	if connectedPlayersCount >= session.MaxPlayers {
 		http.Error(w, "Session is full", http.StatusBadRequest)
 		return

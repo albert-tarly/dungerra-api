@@ -5,10 +5,11 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/besuhoff/dungeon-game-go/internal/config"
-	"github.com/besuhoff/dungeon-game-go/internal/db"
-	"github.com/besuhoff/dungeon-game-go/internal/types"
-	"github.com/besuhoff/dungeon-game-go/internal/utils"
+	"github.com/besuhoff/dungerra/internal/config"
+	"github.com/besuhoff/dungerra/internal/db"
+	"github.com/besuhoff/dungerra/internal/types"
+	"github.com/besuhoff/dungerra/internal/utils"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // SessionState represents the complete state of a game session
@@ -119,9 +120,19 @@ func (e *Engine) LoadFromSession(session *db.GameSession) {
 			if droppedBy, ok := obj.Properties["dropped_by"].(string); ok {
 				bonus.DroppedBy = droppedBy
 			}
-			if droppedAt, ok := obj.Properties["dropped_at"].(int64); ok {
-				if droppedAt > 0 {
-					bonus.DroppedAt = time.Unix(droppedAt, 0)
+			if droppedAt, ok := toInt64(obj.Properties["dropped_at"]); ok && droppedAt > 0 {
+				bonus.DroppedAt = time.Unix(droppedAt, 0)
+			}
+
+			if rawInventory, ok := obj.Properties["inventory"]; ok {
+				bonus.Inventory = parseBonusInventory(rawInventory)
+			} else {
+				// Sessions saved before bonus inventory was persisted: restore single-item bonuses
+				switch bonus.Type {
+				case types.BonusTypeAidKit:
+					bonus.Inventory = []types.InventoryItem{{Type: types.InventoryItemAidKit, Quantity: 1}}
+				case types.BonusTypeGoggles:
+					bonus.Inventory = []types.InventoryItem{{Type: types.InventoryItemGoggles, Quantity: 1}}
 				}
 			}
 
@@ -351,6 +362,14 @@ func (e *Engine) SaveToSession(session *db.GameSession) {
 			droppedAt = bonus.DroppedAt.Unix()
 		}
 
+		inventory := make([]interface{}, 0, len(bonus.Inventory))
+		for _, item := range bonus.Inventory {
+			inventory = append(inventory, map[string]interface{}{
+				"type":     int32(item.Type),
+				"quantity": item.Quantity,
+			})
+		}
+
 		session.SharedObjects[id] = db.WorldObject{
 			ObjectID: id,
 			Type:     "bonus",
@@ -360,6 +379,7 @@ func (e *Engine) SaveToSession(session *db.GameSession) {
 				"bonus_type": bonus.Type,
 				"dropped_by": bonus.DroppedBy,
 				"dropped_at": droppedAt,
+				"inventory":  inventory,
 			},
 		}
 	}
@@ -379,6 +399,65 @@ func (e *Engine) SaveToSession(session *db.GameSession) {
 	}
 
 	session.GameVersion = config.GameVersion
+}
+
+// toInt64 converts a numeric value decoded from BSON/JSON (int32, int64, float64, ...) to int64
+func toInt64(value interface{}) (int64, bool) {
+	switch v := value.(type) {
+	case int:
+		return int64(v), true
+	case int8:
+		return int64(v), true
+	case int32:
+		return int64(v), true
+	case int64:
+		return v, true
+	case float32:
+		return int64(v), true
+	case float64:
+		return int64(v), true
+	}
+	return 0, false
+}
+
+// parseBonusInventory restores a bonus inventory saved by SaveToSession
+func parseBonusInventory(raw interface{}) []types.InventoryItem {
+	var entries []interface{}
+	switch v := raw.(type) {
+	case primitive.A:
+		entries = v
+	case []interface{}:
+		entries = v
+	default:
+		return []types.InventoryItem{}
+	}
+
+	inventory := make([]types.InventoryItem, 0, len(entries))
+	for _, entry := range entries {
+		var fields map[string]interface{}
+		switch e := entry.(type) {
+		case map[string]interface{}:
+			fields = e
+		case primitive.M:
+			fields = e
+		case primitive.D:
+			fields = e.Map()
+		default:
+			continue
+		}
+
+		itemType, typeOk := toInt64(fields["type"])
+		quantity, quantityOk := toInt64(fields["quantity"])
+		if !typeOk || !quantityOk || quantity <= 0 {
+			continue
+		}
+
+		inventory = append(inventory, types.InventoryItem{
+			Type:     types.InventoryItemID(itemType),
+			Quantity: int32(quantity),
+		})
+	}
+	return inventory
 }
 
 // Clear removes all state from the engine

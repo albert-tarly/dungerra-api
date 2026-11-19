@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/besuhoff/dungeon-game-go/internal/config"
+	"github.com/besuhoff/dungerra/internal/config"
 	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -18,7 +18,7 @@ type Claims struct {
 // GenerateToken generates a new JWT token for a user
 func GenerateToken(userID primitive.ObjectID) (string, error) {
 	expirationTime := time.Now().Add(time.Duration(config.AppConfig.AccessTokenExpireMinutes) * time.Minute)
-	
+
 	claims := &Claims{
 		UserID: userID.Hex(),
 		RegisteredClaims: jwt.RegisteredClaims{

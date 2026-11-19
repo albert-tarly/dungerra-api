@@ -7,11 +7,12 @@
 package protocol
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -2479,7 +2480,7 @@ const file_messages_proto_rawDesc = "" +
 	"\fPLAYER_LEAVE\x10\a\x12\x12\n" +
 	"\x0ePLAYER_RESPAWN\x10\b\x12\t\n" +
 	"\x05ERROR\x10\n" +
-	"B7Z5github.com/besuhoff/dungeon-game-go/internal/protocolb\x06proto3"
+	"B7Z5github.com/besuhoff/dungerra/internal/protocolb\x06proto3"
 
 var (
 	file_messages_proto_rawDescOnce sync.Once

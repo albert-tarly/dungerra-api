@@ -11,7 +11,7 @@ A real-time authoritative multiplayer shooter game server written in Go with Web
   - Secure WebSocket connections with token validation
 - **Authoritative Server Architecture**: All game logic runs on the server to prevent cheating
 - **Real-time Multiplayer**: WebSocket-based communication for low-latency gameplay
-- **Binary Protocol Support**: Optional Protocol Buffers encoding for 60% bandwidth reduction (see [Binary Protocol section](docs/binary-protocol.md))
+- **Binary Protocol Support**: Optional Protocol Buffers encoding for 60% bandwidth reduction (see [Binary Protocol section](docs/development/binary-protocol.md))
 - **Database Persistence**:
   - MongoDB integration for user data and game sessions
   - User profiles with stats, progress tracking
@@ -27,13 +27,13 @@ A real-time authoritative multiplayer shooter game server written in Go with Web
   - Procedural wall generation in chunks
   - Power-ups: Aid kits (heal) and Night vision goggles
   - Map boundaries with chunk-based world generation
-- **60 FPS Game Loop**: Smooth server-side physics and updates
+- **30 FPS Game Loop**: Smooth server-side physics and updates
 - **Scalable Design**: Concurrent client handling with goroutines
 
 ## Project Structure
 
 ```
-dungeon-game-go/
+dungerra/
 ├── main.go                          # Server entry point
 ├── go.mod                           # Go module definition
 ├── .env.example                     # Environment variables template
@@ -72,7 +72,7 @@ dungeon-game-go/
 1. Clone or navigate to the project directory:
 
 ```bash
-cd /Users/spereverziev/project/walknhit/dungeon-game-go
+cd /Users/spereverziev/project/walknhit/dungerra
 ```
 
 2. Install dependencies:
@@ -190,7 +190,7 @@ const ws = new WebSocket(
 
 - **Health Check**: `GET /health` - Server health status
 
-For details on binary protocol usage, see [Binary Protocol Documentation](BINARY_PROTOCOL.md).
+For details on binary protocol usage, see [Binary Protocol Documentation](docs/development/binary-protocol.md).
 
 ## Client-Server Protocol
 
