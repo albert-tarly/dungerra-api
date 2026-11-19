@@ -107,6 +107,9 @@ message Ray {
   string type = 5;
 }
 
+// Player input. Movement is world-relative (twin-stick) and independent of
+// aim: forward = up (-Y), backward = down (+Y), left = -X, right = +X.
+// Diagonals move at the same speed as straight lines.
 message InputMessage {
   bool forward = 1;
   bool backward = 2;
@@ -115,6 +118,11 @@ message InputMessage {
   bool shoot = 5;
   map<int32, bool> item_key = 6;
   map<int32, bool> purchase_item_key = 7;
+  // Desired facing in degrees, same convention as rotation elsewhere
+  // (0 = facing +Y; atan2(-dx, dy) for a target offset dx, dy). Usually taken
+  // from the mouse cursor. The server turns toward it at a capped rate.
+  // Unset keeps the current facing.
+  optional double aim_rotation = 8;
 }
 
 message PositionUpdate {

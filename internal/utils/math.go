@@ -102,6 +102,33 @@ func ClosestPointOnLineSegment(ax, ay, bx, by, px, py float64) (float64, float64
 	return ax + abx*t, ay + aby*t
 }
 
+// NormalizeDegrees maps an angle in degrees to the range [0, 360).
+func NormalizeDegrees(angle float64) float64 {
+	angle = math.Mod(angle, 360)
+	if angle < 0 {
+		angle += 360
+	}
+	if angle >= 360 { // a tiny negative angle + 360 can round up to 360
+		angle -= 360
+	}
+	return angle
+}
+
+// RotateTowards turns current toward target along the shorter arc by at most
+// maxStep degrees. The result is normalised to [0, 360).
+func RotateTowards(current, target, maxStep float64) float64 {
+	diff := math.Mod(target-current, 360)
+	if diff > 180 {
+		diff -= 360
+	} else if diff < -180 {
+		diff += 360
+	}
+	if math.Abs(diff) <= maxStep {
+		return NormalizeDegrees(target)
+	}
+	return NormalizeDegrees(current + math.Copysign(maxStep, diff))
+}
+
 func ChunkXYFromPosition(posX, posY float64) (int, int) {
 	chunkSize := config.ChunkSize
 	return int(math.Floor(posX / chunkSize)), int(math.Floor(posY / chunkSize))

@@ -2,8 +2,10 @@ package protocol
 
 import (
 	"maps"
+	"math"
 
 	"github.com/albert-tarly/dungerra-api/internal/types"
+	"github.com/albert-tarly/dungerra-api/internal/utils"
 )
 
 // ToProtoVector2 converts types.Vector2 to proto Vector2
@@ -364,7 +366,17 @@ func FromProtoInput(input *InputMessage) types.InputPayload {
 		Shoot:           input.Shoot,
 		ItemKey:         input.ItemKey,
 		PurchaseItemKey: input.PurchaseItemKey,
+		AimRotation:     sanitizeAimRotation(input.AimRotation),
 	}
+}
+
+// sanitizeAimRotation drops non-finite client angles and normalises the rest to [0, 360).
+func sanitizeAimRotation(aim *float64) *float64 {
+	if aim == nil || math.IsNaN(*aim) || math.IsInf(*aim, 0) {
+		return nil
+	}
+	normalized := utils.NormalizeDegrees(*aim)
+	return &normalized
 }
 
 func IsGameStateDeltaEmpty(delta *GameStateDeltaMessage) bool {

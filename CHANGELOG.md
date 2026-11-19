@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `InputMessage.aim_rotation` (field 8): desired facing in degrees, usually from the mouse cursor. The server turns the player toward it at up to 720°/s.
+
+### Changed
+
+- **Breaking:** movement is world-relative (twin-stick). `forward`/`backward`/`left`/`right` now move up/down/left/right instead of moving along the facing and rotating. Diagonal movement is normalised to the same speed.
+- `PlayerRotationSpeed` 180°/s → 720°/s (max turn rate toward the aim).
+
+### Removed
+
+- Keyboard rotation: `left`/`right` no longer turn the player.
+
 ## [1.1.1] - 2025-12-26
 
 ### Changed

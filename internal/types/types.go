@@ -28,6 +28,9 @@ type InputPayload struct {
 	Shoot           bool           `json:"shoot"`
 	ItemKey         map[int32]bool `json:"item_key,omitempty"`
 	PurchaseItemKey map[int32]bool `json:"purchase_item_key,omitempty"`
+	// AimRotation is the desired facing in degrees, normalised to [0, 360).
+	// Nil means the client sent no aim, so the facing is left unchanged.
+	AimRotation *float64 `json:"aim_rotation,omitempty"`
 }
 
 type CollisionObject struct {

@@ -20,7 +20,7 @@ A real-time authoritative multiplayer shooter game server written in Go with Web
   - User profiles with stats, progress tracking
   - Game session management and state persistence
 - **Core Game Mechanics**:
-  - Player movement with rotation-based controls (forward/backward in facing direction)
+  - Twin-stick controls: world-relative movement, facing turns toward the client's aim (mouse cursor)
   - Lives system with invulnerability after taking damage
   - Bullet recharge system (6 bullets, recharge over time)
   - Shooting mechanics with fire rate limiting
@@ -285,12 +285,13 @@ For details on binary protocol usage, see [Binary Protocol Documentation](docs/d
     "backward": false,
     "left": false,
     "right": true,
-    "direction": 1.5708
+    "aimRotation": 225.0
   }
 }
 ```
 
-- `direction`: Player facing direction in radians
+- `forward` / `backward` / `left` / `right`: move up (-Y) / down (+Y) / left (-X) / right (+X), independent of facing. Diagonals move at normal speed.
+- `aimRotation` (optional): desired facing in degrees (0 = +Y, `atan2(-dx, dy)` for a target offset `dx, dy`). The server turns toward it at a capped rate. If omitted, the last aim is kept.
 
 #### Shoot
 
@@ -468,7 +469,8 @@ ws.onmessage = (event) => {
 };
 
 // Send player input
-function sendInput(keys, mouseAngle) {
+// aimDegrees: angle from the player to the cursor, atan2(-dx, dy) in degrees
+function sendInput(keys, aimDegrees) {
   ws.send(
     JSON.stringify({
       type: "input",
@@ -477,7 +479,7 @@ function sendInput(keys, mouseAngle) {
         backward: keys.s,
         left: keys.a,
         right: keys.d,
-        direction: mouseAngle,
+        aimRotation: aimDegrees,
       },
     })
   );

@@ -307,6 +307,10 @@ export interface Ray {
     type: string;
 }
 /**
+ * Player input. Movement is world-relative (twin-stick) and independent of
+ * aim: forward = up (-Y), backward = down (+Y), left = -X, right = +X.
+ * Diagonals move at the same speed as straight lines.
+ *
  * @generated from protobuf message protocol.InputMessage
  */
 export interface InputMessage {
@@ -342,6 +346,15 @@ export interface InputMessage {
     purchaseItemKey: {
         [key: number]: boolean;
     };
+    /**
+     * Desired facing in degrees, same convention as rotation elsewhere
+     * (0 = facing +Y; atan2(-dx, dy) for a target offset dx, dy). Usually taken
+     * from the mouse cursor. The server turns toward it at a capped rate.
+     * Unset keeps the current facing.
+     *
+     * @generated from protobuf field: optional double aim_rotation = 8
+     */
+    aimRotation?: number;
 }
 /**
  * @generated from protobuf message protocol.PositionUpdate
@@ -1680,7 +1693,8 @@ class InputMessage$Type extends MessageType$<InputMessage> {
             { no: 4, name: "right", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 5, name: "shoot", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 6, name: "item_key", kind: "map", K: 5 /*ScalarType.INT32*/, V: { kind: "scalar", T: 8 /*ScalarType.BOOL*/ } },
-            { no: 7, name: "purchase_item_key", kind: "map", K: 5 /*ScalarType.INT32*/, V: { kind: "scalar", T: 8 /*ScalarType.BOOL*/ } }
+            { no: 7, name: "purchase_item_key", kind: "map", K: 5 /*ScalarType.INT32*/, V: { kind: "scalar", T: 8 /*ScalarType.BOOL*/ } },
+            { no: 8, name: "aim_rotation", kind: "scalar", opt: true, T: 1 /*ScalarType.DOUBLE*/ }
         ]);
     }
     create(value?: PartialMessage<InputMessage>): InputMessage {
@@ -1721,6 +1735,9 @@ class InputMessage$Type extends MessageType$<InputMessage> {
                     break;
                 case /* map<int32, bool> purchase_item_key */ 7:
                     this.binaryReadMap7(message.purchaseItemKey, reader, options);
+                    break;
+                case /* optional double aim_rotation */ 8:
+                    message.aimRotation = reader.double();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -1787,6 +1804,9 @@ class InputMessage$Type extends MessageType$<InputMessage> {
         /* map<int32, bool> purchase_item_key = 7; */
         for (let k of globalThis.Object.keys(message.purchaseItemKey))
             writer.tag(7, WireType.LengthDelimited).fork().tag(1, WireType.Varint).int32(parseInt(k)).tag(2, WireType.Varint).bool(message.purchaseItemKey[k as any]).join();
+        /* optional double aim_rotation = 8; */
+        if (message.aimRotation !== undefined)
+            writer.tag(8, WireType.Bit64).double(message.aimRotation);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

@@ -515,9 +515,38 @@ func (e *Engine) UpdatePlayerInput(playerID string, input types.InputPayload) {
 				e.itemsToPurchaseByPlayer[playerID] = append(e.itemsToPurchaseByPlayer[playerID], types.InventoryItemID(i))
 			}
 		}
+
+		// Keep turning toward the last aim if this message carries none
+		if input.AimRotation == nil {
+			input.AimRotation = prevInput.AimRotation
+		}
 	}
 
 	e.playerInputState[playerID] = &input
+}
+
+// movementDirection returns the world-relative unit vector the player wants to
+// move in (forward = -Y, backward = +Y, left = -X, right = +X), or (0, 0).
+// Diagonals are normalised so they are not faster than straight moves.
+func movementDirection(input *types.InputPayload) (float64, float64) {
+	x, y := 0.0, 0.0
+	if input.Left {
+		x--
+	}
+	if input.Right {
+		x++
+	}
+	if input.Forward {
+		y--
+	}
+	if input.Backward {
+		y++
+	}
+	if x != 0 && y != 0 {
+		x /= math.Sqrt2
+		y /= math.Sqrt2
+	}
+	return x, y
 }
 
 func (e *Engine) updatePreviousState(playerID string) {
@@ -709,25 +738,10 @@ func (e *Engine) Update() {
 		input, inputExists := e.playerInputState[player.ID]
 		if inputExists {
 
-			// Process movement input
-			if input.Left || input.Right {
-				if input.Left {
-					player.Rotation -= config.PlayerRotationSpeed * deltaTime
-				}
-				if input.Right {
-					player.Rotation += config.PlayerRotationSpeed * deltaTime
-				}
-
-				// Normalize rotation to 0-360 range
-				for player.Rotation < 0 {
-					player.Rotation += 360
-				}
-				for player.Rotation >= 360 {
-					player.Rotation -= 360
-				}
+			// Turn toward the aim direction at a capped rate
+			if input.AimRotation != nil {
+				player.Rotation = utils.RotateTowards(player.Rotation, *input.AimRotation, config.PlayerRotationSpeed*deltaTime)
 			}
-
-			rotationRad := player.Rotation * math.Pi / 180.0
 
 			if input.Shoot {
 				for id := range e.handlePlayerShooting(player) {
@@ -735,18 +749,12 @@ func (e *Engine) Update() {
 				}
 			}
 
-			if input.Forward || input.Backward {
-				forward := 0.0
-				if e.playerInputState[player.ID].Forward {
-					forward = 1.0
-				}
-				if e.playerInputState[player.ID].Backward {
-					forward = -1.0
-				}
-
+			// Movement is world-relative and independent of facing
+			moveX, moveY := movementDirection(input)
+			if moveX != 0 || moveY != 0 {
 				// Calculate movement
-				intendedDx := -math.Sin(rotationRad) * config.PlayerSpeed * deltaTime * forward
-				intendedDy := math.Cos(rotationRad) * config.PlayerSpeed * deltaTime * forward
+				intendedDx := moveX * config.PlayerSpeed * deltaTime
+				intendedDy := moveY * config.PlayerSpeed * deltaTime
 
 				dx := intendedDx
 				dy := intendedDy

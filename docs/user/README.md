@@ -27,6 +27,6 @@ Destroy enemies to earn money, spend it on better weapons, and try to stay alive
 - **PvP.** Other players can shoot you, and you can shoot them.
 - **Leaderboard.** Your best run in each session is recorded when you die.
 
-> Key bindings depend on the game client you use. This guide describes actions ("rotate left", "shoot", "use item"), not specific keys.
+> Key bindings depend on the game client you use. This guide describes actions ("move up", "aim", "shoot", "use item"), not specific keys.
 
 *Describes server game version 1.4.0.*

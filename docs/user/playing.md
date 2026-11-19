@@ -4,14 +4,13 @@ Distances below are in game **units**. For scale, your character is 24 units wid
 
 ## Movement
 
-Dungerra uses rotate-and-move controls, like driving a tank:
+Moving and aiming are separate, so you can run one way and shoot another:
 
 | Action | Effect |
 | --- | --- |
-| **Rotate left / right** | Turn on the spot at 180° per second (a full turn takes 2 seconds) |
-| **Forward** | Move in the direction you are facing at 300 units/second |
-| **Backward** | Move away from the direction you are facing at the same speed |
-| **Shoot** | Fire the selected weapon. Hold it to keep firing as fast as the weapon allows. |
+| **Move up / down / left / right** | Move in that direction on screen at 300 units/second, wherever you are aiming. Moving diagonally is not faster. |
+| **Aim** | Turn to face the point you aim at, at up to 720° per second (turning around takes a quarter of a second) |
+| **Shoot** | Fire the selected weapon in the direction you are facing. Hold it to keep firing as fast as the weapon allows. |
 
 Walls, living enemies and other players block you. If you run into a wall at an angle, you slide along it instead of stopping dead, which makes moving through corridors easier.
 

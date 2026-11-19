@@ -151,7 +151,7 @@ const (
 	PlayerTorchOffsetX  = 10.0
 	PlayerTorchOffsetY  = 18.0
 
-	PlayerRotationSpeed            = 180.0 // Degrees per second
+	PlayerRotationSpeed            = 720.0 // Max degrees per second the player turns toward the aim direction
 	PlayerInvulnerabilityTime      = 1.0   // Seconds
 	PlayerSpawnInvulnerabilityTime = 3.0   // Seconds after spawn
 	PlayerReward                   = 100.0 // Money for killing enemy

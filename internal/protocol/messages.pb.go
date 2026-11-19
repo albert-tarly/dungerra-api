@@ -927,6 +927,9 @@ func (x *Ray) GetType() string {
 	return ""
 }
 
+// Player input. Movement is world-relative (twin-stick) and independent of
+// aim: forward = up (-Y), backward = down (+Y), left = -X, right = +X.
+// Diagonals move at the same speed as straight lines.
 type InputMessage struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Forward         bool                   `protobuf:"varint,1,opt,name=forward,proto3" json:"forward,omitempty"`
@@ -936,8 +939,13 @@ type InputMessage struct {
 	Shoot           bool                   `protobuf:"varint,5,opt,name=shoot,proto3" json:"shoot,omitempty"`
 	ItemKey         map[int32]bool         `protobuf:"bytes,6,rep,name=item_key,json=itemKey,proto3" json:"item_key,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	PurchaseItemKey map[int32]bool         `protobuf:"bytes,7,rep,name=purchase_item_key,json=purchaseItemKey,proto3" json:"purchase_item_key,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Desired facing in degrees, same convention as rotation elsewhere
+	// (0 = facing +Y; atan2(-dx, dy) for a target offset dx, dy). Usually taken
+	// from the mouse cursor. The server turns toward it at a capped rate.
+	// Unset keeps the current facing.
+	AimRotation   *float64 `protobuf:"fixed64,8,opt,name=aim_rotation,json=aimRotation,proto3,oneof" json:"aim_rotation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *InputMessage) Reset() {
@@ -1017,6 +1025,13 @@ func (x *InputMessage) GetPurchaseItemKey() map[int32]bool {
 		return x.PurchaseItemKey
 	}
 	return nil
+}
+
+func (x *InputMessage) GetAimRotation() float64 {
+	if x != nil && x.AimRotation != nil {
+		return *x.AimRotation
+	}
+	return 0
 }
 
 type PositionUpdate struct {
@@ -2313,7 +2328,7 @@ const file_messages_proto_rawDesc = "" +
 	"\bposition\x18\x02 \x01(\v2\x11.protocol.Vector2R\bposition\x124\n" +
 	"\fend_position\x18\x03 \x01(\v2\x11.protocol.Vector2R\vendPosition\x12\x19\n" +
 	"\bowner_id\x18\x04 \x01(\tR\aownerId\x12\x12\n" +
-	"\x04type\x18\x05 \x01(\tR\x04type\"\x9d\x03\n" +
+	"\x04type\x18\x05 \x01(\tR\x04type\"\xd6\x03\n" +
 	"\fInputMessage\x12\x18\n" +
 	"\aforward\x18\x01 \x01(\bR\aforward\x12\x1a\n" +
 	"\bbackward\x18\x02 \x01(\bR\bbackward\x12\x12\n" +
@@ -2321,13 +2336,15 @@ const file_messages_proto_rawDesc = "" +
 	"\x05right\x18\x04 \x01(\bR\x05right\x12\x14\n" +
 	"\x05shoot\x18\x05 \x01(\bR\x05shoot\x12>\n" +
 	"\bitem_key\x18\x06 \x03(\v2#.protocol.InputMessage.ItemKeyEntryR\aitemKey\x12W\n" +
-	"\x11purchase_item_key\x18\a \x03(\v2+.protocol.InputMessage.PurchaseItemKeyEntryR\x0fpurchaseItemKey\x1a:\n" +
+	"\x11purchase_item_key\x18\a \x03(\v2+.protocol.InputMessage.PurchaseItemKeyEntryR\x0fpurchaseItemKey\x12&\n" +
+	"\faim_rotation\x18\b \x01(\x01H\x00R\vaimRotation\x88\x01\x01\x1a:\n" +
 	"\fItemKeyEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\x05R\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\bR\x05value:\x028\x01\x1aB\n" +
 	"\x14PurchaseItemKeyEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\x05R\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\bR\x05value:\x028\x01\"H\n" +
+	"\x05value\x18\x02 \x01(\bR\x05value:\x028\x01B\x0f\n" +
+	"\r_aim_rotation\"H\n" +
 	"\x0ePositionUpdate\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x01R\x01x\x12\f\n" +
 	"\x01y\x18\x02 \x01(\x01R\x01y\x12\x1a\n" +
@@ -2629,6 +2646,7 @@ func file_messages_proto_init() {
 	if File_messages_proto != nil {
 		return
 	}
+	file_messages_proto_msgTypes[10].OneofWrappers = []any{}
 	file_messages_proto_msgTypes[28].OneofWrappers = []any{
 		(*GameMessage_Input)(nil),
 		(*GameMessage_GameStateDelta)(nil),

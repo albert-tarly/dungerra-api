@@ -60,7 +60,9 @@ const ws = new WebSocket("ws://localhost:8080/ws?protocol=binary");
 ws.binaryType = "arraybuffer";
 
 // Send input
-function sendInput(forward, backward, left, right, direction) {
+// forward/backward/left/right move up/down/left/right on screen;
+// aimRotation is the desired facing in degrees (0 = +Y, atan2(-dx, dy)).
+function sendInput(forward, backward, left, right, aimRotation) {
   const message = GameMessage.create({
     type: MessageType.values.INPUT,
     input: {
@@ -68,7 +70,7 @@ function sendInput(forward, backward, left, right, direction) {
       backward,
       left,
       right,
-      direction,
+      aimRotation,
     },
   });
 
@@ -98,16 +100,16 @@ import (
 )
 
 // Send input
-func sendInput(conn *websocket.Conn, forward, backward, left, right bool, direction float64) {
+func sendInput(conn *websocket.Conn, forward, backward, left, right bool, aimRotation float64) {
   msg := &protocol.GameMessage{
     Type: protocol.MessageType_INPUT,
     Payload: &protocol.GameMessage_Input{
       Input: &protocol.InputMessage{
-        Forward:   forward,
-        Backward:  backward,
-        Left:      left,
-        Right:     right,
-        Direction: direction,
+        Forward:     forward,
+        Backward:    backward,
+        Left:        left,
+        Right:       right,
+        AimRotation: &aimRotation,
       },
     },
   }

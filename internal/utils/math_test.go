@@ -275,3 +275,40 @@ func TestClosestPointOnLineSegment(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizeDegrees(t *testing.T) {
+	tests := []struct{ in, want float64 }{
+		{0, 0}, {359.5, 359.5}, {360, 0}, {720 + 45, 45}, {-90, 270}, {-360, 0}, {-1e-15, 0},
+	}
+	for _, tt := range tests {
+		got := NormalizeDegrees(tt.in)
+		if got < 0 || got >= 360 || math.Abs(got-tt.want) > 1e-9 {
+			t.Errorf("NormalizeDegrees(%v) = %v, want %v", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestRotateTowards(t *testing.T) {
+	tests := []struct {
+		name                     string
+		current, target, maxStep float64
+		want                     float64
+	}{
+		{"reaches target within step", 10, 30, 24, 30},
+		{"capped clockwise", 0, 90, 24, 24},
+		{"capped counter-clockwise", 90, 0, 24, 66},
+		{"shorter arc across 0", 350, 10, 5, 355},
+		{"shorter arc across 0 reversed", 10, 350, 5, 5},
+		{"wraps below 0", 2, 300, 24, 338},
+		{"already there", 123, 123, 24, 123},
+		{"unnormalised target", 0, -90, 24, 336},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := RotateTowards(tt.current, tt.target, tt.maxStep)
+			if math.Abs(got-tt.want) > 1e-9 {
+				t.Errorf("RotateTowards(%v, %v, %v) = %v, want %v", tt.current, tt.target, tt.maxStep, got, tt.want)
+			}
+		})
+	}
+}
