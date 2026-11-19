@@ -1683,32 +1683,39 @@ func (x *ShopUpdate) GetInventory() map[int32]*ShopItem {
 }
 
 type GameStateDeltaMessage struct {
-	state                       protoimpl.MessageState     `protogen:"open.v1"`
-	AddedPlayers                map[string]*Player         `protobuf:"bytes,1,rep,name=added_players,json=addedPlayers,proto3" json:"added_players,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	UpdatedPlayers              map[string]*PlayerUpdate   `protobuf:"bytes,2,rep,name=updated_players,json=updatedPlayers,proto3" json:"updated_players,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	RemovedPlayers              []string                   `protobuf:"bytes,3,rep,name=removed_players,json=removedPlayers,proto3" json:"removed_players,omitempty"`
-	AddedBullets                map[string]*Bullet         `protobuf:"bytes,4,rep,name=added_bullets,json=addedBullets,proto3" json:"added_bullets,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	UpdatedBullets              map[string]*PositionUpdate `protobuf:"bytes,5,rep,name=updated_bullets,json=updatedBullets,proto3" json:"updated_bullets,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	RemovedBullets              map[string]*Bullet         `protobuf:"bytes,6,rep,name=removed_bullets,json=removedBullets,proto3" json:"removed_bullets,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	AddedWalls                  map[string]*Wall           `protobuf:"bytes,7,rep,name=added_walls,json=addedWalls,proto3" json:"added_walls,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	RemovedWalls                []string                   `protobuf:"bytes,8,rep,name=removed_walls,json=removedWalls,proto3" json:"removed_walls,omitempty"`
-	AddedEnemies                map[string]*Enemy          `protobuf:"bytes,9,rep,name=added_enemies,json=addedEnemies,proto3" json:"added_enemies,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	UpdatedEnemies              map[string]*EnemyUpdate    `protobuf:"bytes,10,rep,name=updated_enemies,json=updatedEnemies,proto3" json:"updated_enemies,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	RemovedEnemies              []string                   `protobuf:"bytes,11,rep,name=removed_enemies,json=removedEnemies,proto3" json:"removed_enemies,omitempty"`
-	AddedBonuses                map[string]*Bonus          `protobuf:"bytes,12,rep,name=added_bonuses,json=addedBonuses,proto3" json:"added_bonuses,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	UpdatedBonuses              map[string]*BonusUpdate    `protobuf:"bytes,13,rep,name=updated_bonuses,json=updatedBonuses,proto3" json:"updated_bonuses,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	RemovedBonuses              []string                   `protobuf:"bytes,14,rep,name=removed_bonuses,json=removedBonuses,proto3" json:"removed_bonuses,omitempty"`
-	AddedShops                  map[string]*Shop           `protobuf:"bytes,15,rep,name=added_shops,json=addedShops,proto3" json:"added_shops,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	UpdatedShops                map[string]*ShopUpdate     `protobuf:"bytes,16,rep,name=updated_shops,json=updatedShops,proto3" json:"updated_shops,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	RemovedShops                []string                   `protobuf:"bytes,17,rep,name=removed_shops,json=removedShops,proto3" json:"removed_shops,omitempty"`
-	AddedRays                   map[string]*Ray            `protobuf:"bytes,23,rep,name=added_rays,json=addedRays,proto3" json:"added_rays,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	UpdatedRays                 map[string]*RayUpdate      `protobuf:"bytes,25,rep,name=updated_rays,json=updatedRays,proto3" json:"updated_rays,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	RemovedRays                 []string                   `protobuf:"bytes,24,rep,name=removed_rays,json=removedRays,proto3" json:"removed_rays,omitempty"`
-	AddedPlayersShops           []string                   `protobuf:"bytes,18,rep,name=added_players_shops,json=addedPlayersShops,proto3" json:"added_players_shops,omitempty"`
-	RemovedPlayersShops         []string                   `protobuf:"bytes,19,rep,name=removed_players_shops,json=removedPlayersShops,proto3" json:"removed_players_shops,omitempty"`
-	UpdatedOtherPlayerPositions map[string]*Vector2        `protobuf:"bytes,20,rep,name=updated_other_player_positions,json=updatedOtherPlayerPositions,proto3" json:"updated_other_player_positions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	RemovedOtherPlayerPositions []string                   `protobuf:"bytes,21,rep,name=removed_other_player_positions,json=removedOtherPlayerPositions,proto3" json:"removed_other_player_positions,omitempty"`
-	Timestamp                   int64                      `protobuf:"varint,22,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	state          protoimpl.MessageState   `protogen:"open.v1"`
+	AddedPlayers   map[string]*Player       `protobuf:"bytes,1,rep,name=added_players,json=addedPlayers,proto3" json:"added_players,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	UpdatedPlayers map[string]*PlayerUpdate `protobuf:"bytes,2,rep,name=updated_players,json=updatedPlayers,proto3" json:"updated_players,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	RemovedPlayers []string                 `protobuf:"bytes,3,rep,name=removed_players,json=removedPlayers,proto3" json:"removed_players,omitempty"`
+	// Sent once when a bullet comes into view. Bullets fly in a straight line at
+	// constant speed: clients move them from position + velocity themselves.
+	AddedBullets map[string]*Bullet `protobuf:"bytes,4,rep,name=added_bullets,json=addedBullets,proto3" json:"added_bullets,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Deprecated: no longer sent by the server. Kept so older clients still
+	// decode deltas; do not reuse the field number.
+	UpdatedBullets map[string]*PositionUpdate `protobuf:"bytes,5,rep,name=updated_bullets,json=updatedBullets,proto3" json:"updated_bullets,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Sent once when a bullet leaves view (is_active = true) or ends
+	// (is_active = false), with its final position and deleted_at for impact
+	// effects.
+	RemovedBullets              map[string]*Bullet      `protobuf:"bytes,6,rep,name=removed_bullets,json=removedBullets,proto3" json:"removed_bullets,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	AddedWalls                  map[string]*Wall        `protobuf:"bytes,7,rep,name=added_walls,json=addedWalls,proto3" json:"added_walls,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	RemovedWalls                []string                `protobuf:"bytes,8,rep,name=removed_walls,json=removedWalls,proto3" json:"removed_walls,omitempty"`
+	AddedEnemies                map[string]*Enemy       `protobuf:"bytes,9,rep,name=added_enemies,json=addedEnemies,proto3" json:"added_enemies,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	UpdatedEnemies              map[string]*EnemyUpdate `protobuf:"bytes,10,rep,name=updated_enemies,json=updatedEnemies,proto3" json:"updated_enemies,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	RemovedEnemies              []string                `protobuf:"bytes,11,rep,name=removed_enemies,json=removedEnemies,proto3" json:"removed_enemies,omitempty"`
+	AddedBonuses                map[string]*Bonus       `protobuf:"bytes,12,rep,name=added_bonuses,json=addedBonuses,proto3" json:"added_bonuses,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	UpdatedBonuses              map[string]*BonusUpdate `protobuf:"bytes,13,rep,name=updated_bonuses,json=updatedBonuses,proto3" json:"updated_bonuses,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	RemovedBonuses              []string                `protobuf:"bytes,14,rep,name=removed_bonuses,json=removedBonuses,proto3" json:"removed_bonuses,omitempty"`
+	AddedShops                  map[string]*Shop        `protobuf:"bytes,15,rep,name=added_shops,json=addedShops,proto3" json:"added_shops,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	UpdatedShops                map[string]*ShopUpdate  `protobuf:"bytes,16,rep,name=updated_shops,json=updatedShops,proto3" json:"updated_shops,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	RemovedShops                []string                `protobuf:"bytes,17,rep,name=removed_shops,json=removedShops,proto3" json:"removed_shops,omitempty"`
+	AddedRays                   map[string]*Ray         `protobuf:"bytes,23,rep,name=added_rays,json=addedRays,proto3" json:"added_rays,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	UpdatedRays                 map[string]*RayUpdate   `protobuf:"bytes,25,rep,name=updated_rays,json=updatedRays,proto3" json:"updated_rays,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	RemovedRays                 []string                `protobuf:"bytes,24,rep,name=removed_rays,json=removedRays,proto3" json:"removed_rays,omitempty"`
+	AddedPlayersShops           []string                `protobuf:"bytes,18,rep,name=added_players_shops,json=addedPlayersShops,proto3" json:"added_players_shops,omitempty"`
+	RemovedPlayersShops         []string                `protobuf:"bytes,19,rep,name=removed_players_shops,json=removedPlayersShops,proto3" json:"removed_players_shops,omitempty"`
+	UpdatedOtherPlayerPositions map[string]*Vector2     `protobuf:"bytes,20,rep,name=updated_other_player_positions,json=updatedOtherPlayerPositions,proto3" json:"updated_other_player_positions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	RemovedOtherPlayerPositions []string                `protobuf:"bytes,21,rep,name=removed_other_player_positions,json=removedOtherPlayerPositions,proto3" json:"removed_other_player_positions,omitempty"`
+	Timestamp                   int64                   `protobuf:"varint,22,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields               protoimpl.UnknownFields
 	sizeCache                   protoimpl.SizeCache
 }

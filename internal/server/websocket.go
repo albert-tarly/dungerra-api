@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/albert-tarly/dungerra-api/internal/db"
 	"github.com/albert-tarly/dungerra-api/internal/protocol"
 	"github.com/gorilla/websocket"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -23,6 +24,13 @@ type WebsocketClient struct {
 	Send        chan []byte
 	Server      *GameServer
 	UseBinary   bool // Whether client prefers binary protocol
+
+	// The session as read from the DB when the client connected, so joining
+	// does not need DB I/O on the game loop. dbSessionSaveSeq is the server's
+	// save counter for the session at read time; if it changed by the time
+	// the client registers, the copy is stale.
+	dbSession        *db.GameSession
+	dbSessionSaveSeq uint64
 }
 
 // Client methods
@@ -131,33 +139,41 @@ func (c *WebsocketClient) handleMessage(msg *protocol.GameMessage) {
 	}
 }
 
-func (c *WebsocketClient) SendJSON(msg *protocol.GameMessage) {
+// SendJSON queues msg as JSON and reports whether it was queued. A full
+// send buffer drops the message.
+func (c *WebsocketClient) SendJSON(msg *protocol.GameMessage) bool {
 	data, err := protojson.Marshal(msg)
 	if err != nil {
 		log.Printf("Error marshaling message: %v", err)
-		return
+		return false
 	}
-	select {
-	case c.Send <- data:
-	default:
-		// Buffer full
-	}
+	return c.enqueue(data)
 }
 
-func (c *WebsocketClient) SendBinary(msg *protocol.GameMessage) {
+// SendBinary queues msg as protobuf and reports whether it was queued. A full
+// send buffer drops the message.
+func (c *WebsocketClient) SendBinary(msg *protocol.GameMessage) bool {
 	data, err := proto.Marshal(msg)
 	if err != nil {
 		log.Printf("Error marshaling binary message: %v", err)
-		return
+		return false
 	}
+	return c.enqueue(data)
+}
+
+func (c *WebsocketClient) enqueue(data []byte) bool {
 	select {
 	case c.Send <- data:
+		return true
 	default:
 		// Buffer full
+		return false
 	}
 }
 
-func (c *WebsocketClient) SendGameStateDelta(delta *protocol.GameStateDeltaMessage) {
+// SendGameStateDelta queues a delta and reports whether it was queued. The
+// caller must not treat a dropped delta as delivered.
+func (c *WebsocketClient) SendGameStateDelta(delta *protocol.GameStateDeltaMessage) bool {
 	msg := &protocol.GameMessage{
 		Type: protocol.MessageType_GAME_STATE_DELTA,
 		Payload: &protocol.GameMessage_GameStateDelta{
@@ -166,8 +182,7 @@ func (c *WebsocketClient) SendGameStateDelta(delta *protocol.GameStateDeltaMessa
 	}
 
 	if c.UseBinary {
-		c.SendBinary(msg)
-	} else {
-		c.SendJSON(msg)
+		return c.SendBinary(msg)
 	}
+	return c.SendJSON(msg)
 }

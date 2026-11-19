@@ -149,6 +149,20 @@ function applyDelta(currentState: Map<string, Player>, delta: GameStateDelta) {
 }
 ```
 
+Deltas are cumulative against what the client last received: if the server
+cannot queue a delta (the client's send buffer is full), the next delta
+repeats its changes, so a client never has to request a resync.
+
+#### Bullets
+
+The server does not send per-tick bullet positions (`updatedBullets` stays
+empty). A bullet is announced once in `addedBullets` with its `position` and
+`velocity` (units per second); the client moves it locally along a straight
+line from the delta's `timestamp`. `removedBullets` reports the end of the
+flight: `isActive = true` means it left view (drop it), `isActive = false`
+means it hit something, with the final `position` and `deletedAt` for impact
+effects such as the rocket explosion.
+
 ## Benefits
 
 ✅ **Type Safety**: Full TypeScript types for all messages  

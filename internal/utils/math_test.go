@@ -2,6 +2,7 @@ package utils
 
 import (
 	"math"
+	"math/rand"
 	"testing"
 )
 
@@ -181,6 +182,59 @@ func TestCutLineSegmentBeforeRect(t *testing.T) {
 				t.Errorf("CutLineSegmentBeforeRect() = (%v, %v), want (%v, %v)", ix, iy, tt.expectedX, tt.expectedY)
 			}
 		})
+	}
+}
+
+// cutLineSegmentBeforeRectReference is CutLineSegmentBeforeRect without the
+// bounding-box early exit, kept to prove the shortcut never changes a result.
+func cutLineSegmentBeforeRectReference(x1, y1, x2, y2, rx, ry, rw, rh float64) (float64, float64) {
+	dx := x2 - x1
+	dy := y2 - y1
+	p := []float64{-dx, dx, -dy, dy}
+	q := []float64{x1 - rx, rx + rw - x1, y1 - ry, ry + rh - y1}
+	u1, u2 := 0.0, 1.0
+	for i := range 4 {
+		if p[i] == 0 {
+			if q[i] <= 0 {
+				return x2, y2
+			}
+		} else {
+			t := q[i] / p[i]
+			if p[i] < 0 {
+				if t >= u2 {
+					return x2, y2
+				}
+				if t >= u1 {
+					u1 = t
+				}
+			} else {
+				if t <= u1 {
+					return x2, y2
+				}
+				if t <= u2 {
+					u2 = t
+				}
+			}
+		}
+	}
+	return x1 + u1*dx, y1 + u1*dy
+}
+
+func TestCutLineSegmentBeforeRectMatchesReference(t *testing.T) {
+	rng := rand.New(rand.NewSource(1))
+	// Small integer grid so segments regularly start, end or run along edges
+	coord := func() float64 { return float64(rng.Intn(21) - 5) }
+	for i := 0; i < 200000; i++ {
+		x1, y1, x2, y2 := coord(), coord(), coord(), coord()
+		rx, ry := coord(), coord()
+		rw, rh := float64(rng.Intn(8)), float64(rng.Intn(8))
+
+		gx, gy := CutLineSegmentBeforeRect(x1, y1, x2, y2, rx, ry, rw, rh)
+		wx, wy := cutLineSegmentBeforeRectReference(x1, y1, x2, y2, rx, ry, rw, rh)
+		if gx != wx || gy != wy {
+			t.Fatalf("segment (%v,%v)-(%v,%v), rect (%v,%v %vx%v): got (%v,%v), reference (%v,%v)",
+				x1, y1, x2, y2, rx, ry, rw, rh, gx, gy, wx, wy)
+		}
 	}
 }
 

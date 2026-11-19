@@ -49,7 +49,7 @@ func (e *Engine) LoadFromSession(session *db.GameSession) {
 				wall.Orientation = orientation
 			}
 			chiunkX, chunkY := utils.ChunkXYFromPosition(wall.Position.X, wall.Position.Y)
-			chunkKey := fmt.Sprintf("%d,%d", chiunkX, chunkY)
+			chunkKey := makeChunkKey(chiunkX, chunkY)
 			if _, exists := e.state.wallsByChunk[chunkKey]; !exists {
 				e.state.wallsByChunk[chunkKey] = make(map[string]*types.Wall)
 			}
@@ -98,7 +98,7 @@ func (e *Engine) LoadFromSession(session *db.GameSession) {
 				enemy.Direction = 1
 			}
 			chunkX, chunkY := utils.ChunkXYFromPosition(enemy.Position.X, enemy.Position.Y)
-			chunkKey := fmt.Sprintf("%d,%d", chunkX, chunkY)
+			chunkKey := makeChunkKey(chunkX, chunkY)
 			if _, exists := e.state.enemiesByChunk[chunkKey]; !exists {
 				e.state.enemiesByChunk[chunkKey] = make(map[string]*types.Enemy)
 			}
@@ -181,7 +181,7 @@ func (e *Engine) LoadFromSession(session *db.GameSession) {
 			}
 
 			chunkX, chunkY := utils.ChunkXYFromPosition(shop.Position.X, shop.Position.Y)
-			chunkKey := fmt.Sprintf("%d,%d", chunkX, chunkY)
+			chunkKey := makeChunkKey(chunkX, chunkY)
 			if _, exists := e.state.shopsByChunk[chunkKey]; !exists {
 				e.state.shopsByChunk[chunkKey] = make(map[string]*types.Shop)
 			}

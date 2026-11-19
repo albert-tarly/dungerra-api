@@ -263,7 +263,11 @@ const (
 	// Session constants
 	SessionSaveInterval      = 5 * time.Minute
 	DeadEntitiesCacheTimeout = 5 * time.Second
-	GameLoopInterval         = time.Second / 30
+	// How long a spent bullet stays in the world after hitting something, so a
+	// player who comes into view right after still gets its after-effect. Must
+	// cover the longest client-side bullet effect (rocket explosion, 0.8 s).
+	DeadBulletCacheTimeout = 1 * time.Second
+	GameLoopInterval       = time.Second / 30
 
 	// Shop constants
 	ShopAmmoProbability = 0.7

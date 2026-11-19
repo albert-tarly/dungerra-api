@@ -549,18 +549,28 @@ export interface GameStateDeltaMessage {
      */
     removedPlayers: string[];
     /**
+     * Sent once when a bullet comes into view. Bullets fly in a straight line at
+     * constant speed: clients move them from position + velocity themselves.
+     *
      * @generated from protobuf field: map<string, protocol.Bullet> added_bullets = 4
      */
     addedBullets: {
         [key: string]: Bullet;
     };
     /**
+     * Deprecated: no longer sent by the server. Kept so older clients still
+     * decode deltas; do not reuse the field number.
+     *
      * @generated from protobuf field: map<string, protocol.PositionUpdate> updated_bullets = 5
      */
     updatedBullets: {
         [key: string]: PositionUpdate;
     };
     /**
+     * Sent once when a bullet leaves view (is_active = true) or ends
+     * (is_active = false), with its final position and deleted_at for impact
+     * effects.
+     *
      * @generated from protobuf field: map<string, protocol.Bullet> removed_bullets = 6
      */
     removedBullets: {

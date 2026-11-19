@@ -33,6 +33,7 @@ type Session struct {
 	Engine            *game.Engine
 	PlayerCount       int
 	mu                sync.Mutex
+	saveMu            sync.Mutex // Serializes DB saves so a later snapshot is never overwritten by an earlier one
 	lastSaveTime      time.Time
 	deadPlayerTracked map[string]bool // Track which player deaths have been recorded
 }
@@ -47,6 +48,15 @@ type GameServer struct {
 	shutdown   chan struct{}
 	mu         sync.RWMutex
 	running    bool
+
+	// Sessions whose last player left: saved and cleared in the background so
+	// the game loop does not wait on the DB. A player who rejoins meanwhile
+	// gets the in-memory world back. Guarded by mu.
+	evicting map[string]*eviction
+	// Completed eviction saves per session ID, to detect a DB copy read
+	// before the latest save. Guarded by mu.
+	saveSeq   map[string]uint64
+	evictions sync.WaitGroup
 }
 
 // NewGameServer creates a new game server
@@ -54,6 +64,8 @@ func NewGameServer() *GameServer {
 	return &GameServer{
 		clients:    make(map[string]*WebsocketClient),
 		sessions:   make(map[string]*Session),
+		evicting:   make(map[string]*eviction),
+		saveSeq:    make(map[string]uint64),
 		register:   make(chan *WebsocketClient),
 		unregister: make(chan *WebsocketClient),
 		broadcast:  make(chan []byte, 256),
@@ -169,6 +181,9 @@ func (gs *GameServer) Shutdown() {
 	// Give it a moment to process
 	time.Sleep(100 * time.Millisecond)
 
+	// Let background saves of sessions whose last player left finish
+	gs.evictions.Wait()
+
 	gs.mu.Lock()
 	defer gs.mu.Unlock()
 
@@ -209,22 +224,36 @@ func (gs *GameServer) registerClient(client *WebsocketClient) {
 	// Get or create session
 	session, exists := gs.sessions[client.SessionID]
 	if !exists {
-		// Create new session
-		session = &Session{
-			ID:                client.SessionID,
-			Name:              client.SessionName,
-			Engine:            game.NewEngine(client.SessionID),
-			PlayerCount:       0,
-			deadPlayerTracked: make(map[string]bool),
-		}
-		gs.sessions[client.SessionID] = session
+		if ev, isEvicting := gs.evicting[client.SessionID]; isEvicting {
+			// The last player left moments ago and the session is still being
+			// saved: the in-memory world is newer than the DB, so keep it
+			delete(gs.evicting, client.SessionID)
+			session = ev.session
+			gs.sessions[client.SessionID] = session
+			log.Printf("Reviving session %s that was being unloaded", client.SessionID)
+		} else {
+			session = &Session{
+				ID:                client.SessionID,
+				Name:              client.SessionName,
+				Engine:            game.NewEngine(client.SessionID),
+				PlayerCount:       0,
+				deadPlayerTracked: make(map[string]bool),
+			}
+			gs.sessions[client.SessionID] = session
 
-		// Try to load existing session from database
-		ctx := context.Background()
-		sessionRepo := db.NewGameSessionRepository()
+			// The DB copy was read when the client connected, off the game loop.
+			// Only if an unload save finished since then is it stale and read again.
+			dbSession := client.dbSession
+			if dbSession != nil && client.dbSessionSaveSeq != gs.saveSeq[client.SessionID] {
+				dbSession = nil
+				if sessionID, err := primitive.ObjectIDFromHex(client.SessionID); err == nil {
+					if fresh, err := db.NewGameSessionRepository().FindByID(context.Background(), sessionID); err == nil {
+						dbSession = fresh
+					}
+				}
+			}
 
-		if sessionID, err := primitive.ObjectIDFromHex(client.SessionID); err == nil {
-			if dbSession, err := sessionRepo.FindByID(ctx, sessionID); err == nil {
+			if dbSession != nil {
 				log.Printf("Loading existing session %s from database", client.SessionID)
 				session.Engine.LoadFromSession(dbSession)
 				session.lastSaveTime = time.Now()
@@ -245,13 +274,7 @@ func (gs *GameServer) registerClient(client *WebsocketClient) {
 	// Add player to game engine
 	player := session.Engine.ConnectPlayer(client.UserID.Hex(), client.Username)
 
-	// Update user's current session in database
-	ctx := context.Background()
-	userRepo := db.NewUserRepository()
-	if user, err := userRepo.FindByID(ctx, client.UserID); err == nil {
-		user.CurrentSession = client.SessionID
-		userRepo.Update(ctx, user)
-	}
+	// The user's current session is recorded in HandleWebSocket, off the game loop
 
 	gs.broadcastPlayerJoinedMessage(client.SessionID, player)
 
@@ -260,6 +283,11 @@ func (gs *GameServer) registerClient(client *WebsocketClient) {
 }
 
 func (gs *GameServer) saveSessionToDatabase(session *Session) {
+	// Periodic and unload saves run in the background and may overlap; the
+	// snapshot is taken inside the lock, so saves land in snapshot order
+	session.saveMu.Lock()
+	defer session.saveMu.Unlock()
+
 	ctx := context.Background()
 	sessionRepo := db.NewGameSessionRepository()
 	if sessionObjectID, err := primitive.ObjectIDFromHex(session.ID); err == nil {
@@ -311,34 +339,61 @@ func (gs *GameServer) unregisterClient(client *WebsocketClient) {
 	playerCount := session.PlayerCount
 	session.mu.Unlock()
 
-	// Clear user's current session in database
-	ctx := context.Background()
-	userRepo := db.NewUserRepository()
-	if user, err := userRepo.FindByID(ctx, client.UserID); err == nil {
-		user.CurrentSession = ""
-		userRepo.Update(ctx, user)
-	}
+	// Clear user's current session in database, off the game loop
+	go func(userID primitive.ObjectID) {
+		ctx := context.Background()
+		userRepo := db.NewUserRepository()
+		if user, err := userRepo.FindByID(ctx, userID); err == nil {
+			user.CurrentSession = ""
+			userRepo.Update(ctx, user)
+		}
+	}(client.UserID)
 
 	// If this was the last player, save session to database and clear from memory
 	if playerCount == 0 {
 		log.Printf("Last player left session %s, saving to database", client.SessionID)
 
-		// Save session to database
-		gs.saveSessionToDatabase(session)
-
-		// Remove session from memory
+		// Unload in the background; registerClient revives it if a player
+		// rejoins before the save finishes
+		ev := &eviction{session: session}
 		gs.mu.Lock()
 		delete(gs.sessions, client.SessionID)
+		gs.evicting[client.SessionID] = ev
+		gs.evictions.Add(1)
 		gs.mu.Unlock()
 
-		// Clear engine state
-		session.Engine.Clear()
+		go gs.evictSession(ev)
 	} else {
 		gs.broadcastPlayerLeftMessage(client.SessionID, client.UserID.Hex())
 	}
 
 	log.Printf("Player %s (%s) left session %s (remaining: %d)",
 		client.Username, client.UserID.Hex(), client.SessionID, playerCount)
+}
+
+// eviction is one unload of a session. Each unload gets its own entry, so a
+// slow save from an earlier unload of a revived session cannot free a later one.
+type eviction struct {
+	session *Session
+}
+
+// evictSession saves a session whose last player left and then frees it,
+// unless a player rejoined in the meantime.
+func (gs *GameServer) evictSession(ev *eviction) {
+	defer gs.evictions.Done()
+
+	session := ev.session
+	gs.saveSessionToDatabase(session)
+
+	gs.mu.Lock()
+	defer gs.mu.Unlock()
+
+	gs.saveSeq[session.ID]++
+	if gs.evicting[session.ID] != ev {
+		return // Revived by a rejoining player, or unloaded again since
+	}
+	delete(gs.evicting, session.ID)
+	session.Engine.Clear()
 }
 
 func (gs *GameServer) broadcastMessage(message []byte) {
@@ -409,11 +464,13 @@ func (gs *GameServer) broadcastAllSessionStates() {
 		for _, client := range gs.clients {
 			if client.SessionID == sessionID {
 				// Get player-specific delta (filtered to surrounding chunks)
-				delta := session.Engine.GetGameStateDeltaForPlayer(client.UserID.Hex())
+				playerID := client.UserID.Hex()
+				delta, view := session.Engine.GetGameStateDeltaForPlayer(playerID)
 
-				// Only send if there are changes
-				if !protocol.IsGameStateDeltaEmpty(delta) {
-					client.SendGameStateDelta(delta)
+				// Only send if there are changes. If the client's buffer is full the
+				// delta is dropped and not committed, so the next one includes it.
+				if protocol.IsGameStateDeltaEmpty(delta) || client.SendGameStateDelta(delta) {
+					session.Engine.CommitPlayerView(playerID, view)
 				}
 			}
 		}
@@ -464,6 +521,12 @@ func (gs *GameServer) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Read before the session itself so a save that lands in between is
+	// detected in registerClient
+	gs.mu.RLock()
+	saveSeq := gs.saveSeq[sessionID]
+	gs.mu.RUnlock()
+
 	session, err := sessionRepo.FindByID(ctx, sessionObjID)
 	if err != nil {
 		http.Error(w, "Session not found", http.StatusNotFound)
@@ -490,6 +553,15 @@ func (gs *GameServer) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		Send:        make(chan []byte, 256),
 		Server:      gs,
 		UseBinary:   useBinary,
+
+		dbSession:        session,
+		dbSessionSaveSeq: saveSeq,
+	}
+
+	// Record the user's current session here rather than on the game loop
+	user.CurrentSession = sessionID
+	if err := userRepo.Update(ctx, user); err != nil {
+		log.Printf("Failed to record current session for user %s: %v", user.ID.Hex(), err)
 	}
 
 	log.Printf("New client connected (ID: %s, User: %s, Session: %s, Binary: %v)",

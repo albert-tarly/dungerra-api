@@ -12,6 +12,15 @@ func CheckRectCollision(x1, y1, w1, h1, x2, y2, w2, h2 float64) bool {
 }
 
 func CutLineSegmentBeforeRect(x1, y1, x2, y2, rx, ry, rw, rh float64) (float64, float64) {
+	// Cheap reject first: callers test every wall in nine chunks against each
+	// moving object, and almost none of them are anywhere near the segment.
+	// A segment whose bounding box is strictly apart from the rectangle cannot
+	// touch it, so the result is the same as the full test below.
+	if math.Max(x1, x2) < rx || math.Min(x1, x2) > rx+rw ||
+		math.Max(y1, y2) < ry || math.Min(y1, y2) > ry+rh {
+		return x2, y2
+	}
+
 	// Liang-Barsky algorithm to find intersection point
 	dx := x2 - x1
 	dy := y2 - y1

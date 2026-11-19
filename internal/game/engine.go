@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"log"
 	"math"
 	"math/rand"
@@ -16,6 +15,12 @@ import (
 	"github.com/albert-tarly/dungerra-api/internal/utils"
 	"github.com/google/uuid"
 )
+
+// makeChunkKey builds the "x,y" key used by the per-chunk maps. It runs in the
+// hottest loops of the tick, so it avoids fmt.Sprintf.
+func makeChunkKey(chunkX, chunkY int) string {
+	return strconv.Itoa(chunkX) + "," + strconv.Itoa(chunkY)
+}
 
 // Engine handles the game logic for a specific session
 type EngineGameState struct {
@@ -195,7 +200,7 @@ func (e *Engine) generateChunk(chunkX, chunkY int, playerPos *types.Vector2) {
 	}()
 
 	// Check if chunk already exists
-	chunkKey := fmt.Sprintf("%d,%d", chunkX, chunkY)
+	chunkKey := makeChunkKey(chunkX, chunkY)
 	if e.chunkHash[chunkKey] {
 		return // Chunk already generated
 	}
@@ -558,10 +563,13 @@ func movementDirection(input *types.InputPayload, rotationDeg float64) (float64,
 	return -sin*forward - cos*strafe, cos*forward - sin*strafe
 }
 
-func (e *Engine) updatePreviousState(playerID string) {
+// buildPlayerView snapshots what the player's client will know once the delta
+// computed in the same read-locked pass has been delivered. It only reads
+// engine state, so it is safe under RLock.
+func (e *Engine) buildPlayerView(playerID string) *EngineGameState {
 	player, exists := e.state.players[playerID]
 	if !exists {
-		return
+		return nil
 	}
 
 	playerChunkX, playerChunkY := utils.ChunkXYFromPosition(player.Position.X, player.Position.Y)
@@ -598,7 +606,7 @@ func (e *Engine) updatePreviousState(playerID string) {
 	prevState.enemiesByChunk = make(map[string]map[string]*types.Enemy)
 	for neighborChunkX := playerChunkX - 1; neighborChunkX <= playerChunkX+1; neighborChunkX++ {
 		for neighborChunkY := playerChunkY - 1; neighborChunkY <= playerChunkY+1; neighborChunkY++ {
-			chunkKey := fmt.Sprintf("%d,%d", neighborChunkX, neighborChunkY)
+			chunkKey := makeChunkKey(neighborChunkX, neighborChunkY)
 			if !e.chunkHash[chunkKey] {
 				continue
 			}
@@ -609,7 +617,9 @@ func (e *Engine) updatePreviousState(playerID string) {
 			for _, wall := range e.state.wallsByChunk[chunkKey] {
 				// Walls are always visible to players so no need to check nearby players
 				if wall.IsVisibleToPlayer(player) {
-					prevState.wallsByChunk[chunkKey][wall.ID] = wall.Clone()
+					// Walls never change after generation and the delta only checks
+					// their presence, so the live object is shared instead of copied
+					prevState.wallsByChunk[chunkKey][wall.ID] = wall
 				}
 			}
 
@@ -662,7 +672,42 @@ func (e *Engine) updatePreviousState(playerID string) {
 		}
 	}
 
-	e.prevState[playerID] = prevState
+	return prevState
+}
+
+// PlayerView is the state a player's client will have after receiving a delta.
+// The server commits it with CommitPlayerView only once the delta has been
+// queued for sending, so a dropped delta is folded into the next one instead
+// of being lost.
+type PlayerView struct {
+	state          *EngineGameState
+	deltaTime      time.Duration
+	updatePrevTime time.Duration
+}
+
+// CommitPlayerView makes view the base for the player's next delta.
+func (e *Engine) CommitPlayerView(playerID string, view *PlayerView) {
+	if view == nil || view.state == nil {
+		return
+	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	// The player disconnected after the delta was computed
+	if _, exists := e.prevState[playerID]; !exists {
+		return
+	}
+	e.prevState[playerID] = view.state
+
+	if e.debugMode {
+		e.stats.DeltaCalcCount++
+		e.stats.DeltaCalcCountSinceLastReport++
+		e.stats.TotalDeltaCalcTime.delta += view.deltaTime
+		e.stats.TotalDeltaCalcTimeSinceLastReport.delta += view.deltaTime
+		e.stats.TotalDeltaCalcTime.updatePrevious += view.updatePrevTime
+		e.stats.TotalDeltaCalcTimeSinceLastReport.updatePrevious += view.updatePrevTime
+	}
 }
 
 // Update runs one game tick
@@ -728,7 +773,7 @@ func (e *Engine) Update() {
 
 		var playersShop *types.Shop
 		// Check if player is in shop
-		chunkKey := fmt.Sprintf("%d,%d", playerChunkX, playerChunkY)
+		chunkKey := makeChunkKey(playerChunkX, playerChunkY)
 		for _, shop := range e.state.shopsByChunk[chunkKey] {
 			if shop.IsPlayerInShop(player) {
 				playersShop = shop
@@ -776,7 +821,7 @@ func (e *Engine) Update() {
 
 				for neighborChunkX := playerChunkX - 1; neighborChunkX <= playerChunkX+1; neighborChunkX++ {
 					for neighborChunkY := playerChunkY - 1; neighborChunkY <= playerChunkY+1; neighborChunkY++ {
-						neighborChunkKey := fmt.Sprintf("%d,%d", neighborChunkX, neighborChunkY)
+						neighborChunkKey := makeChunkKey(neighborChunkX, neighborChunkY)
 						if !e.chunkHash[neighborChunkKey] {
 							continue
 						}
@@ -881,7 +926,7 @@ func (e *Engine) Update() {
 		playerChunkX, playerChunkY = utils.ChunkXYFromPosition(player.Position.X, player.Position.Y)
 		for neighborChunkX := playerChunkX - 1; neighborChunkX <= playerChunkX+1; neighborChunkX++ {
 			for neighborChunkY := playerChunkY - 1; neighborChunkY <= playerChunkY+1; neighborChunkY++ {
-				neighborChunkKey := fmt.Sprintf("%d,%d", neighborChunkX, neighborChunkY)
+				neighborChunkKey := makeChunkKey(neighborChunkX, neighborChunkY)
 				if !e.chunkHash[neighborChunkKey] {
 					e.generateChunk(neighborChunkX, neighborChunkY, player.Position)
 				}
@@ -948,7 +993,7 @@ func (e *Engine) Update() {
 
 					for neighborChunkX := enemyChunkX - 1; neighborChunkX <= enemyChunkX+1; neighborChunkX++ {
 						for neighborChunkY := enemyChunkY - 1; neighborChunkY <= enemyChunkY+1; neighborChunkY++ {
-							neighborChunkKey := fmt.Sprintf("%d,%d", neighborChunkX, neighborChunkY)
+							neighborChunkKey := makeChunkKey(neighborChunkX, neighborChunkY)
 							if !e.chunkHash[neighborChunkKey] {
 								continue
 							}
@@ -1114,7 +1159,7 @@ func (e *Engine) Update() {
 				enemyChunkX, enemyChunkY := utils.ChunkXYFromPosition(enemy.Position.X, enemy.Position.Y)
 				for neighborChunkX := enemyChunkX - 1; neighborChunkX <= enemyChunkX+1; neighborChunkX++ {
 					for neighborChunkY := enemyChunkY - 1; neighborChunkY <= enemyChunkY+1; neighborChunkY++ {
-						neighborChunkKey := fmt.Sprintf("%d,%d", neighborChunkX, neighborChunkY)
+						neighborChunkKey := makeChunkKey(neighborChunkX, neighborChunkY)
 						if !e.chunkHash[neighborChunkKey] {
 							continue
 						}
@@ -1150,7 +1195,7 @@ func (e *Engine) Update() {
 					collision := false
 					for neighborChunkX := enemyChunkX - 1; neighborChunkX <= enemyChunkX+1; neighborChunkX++ {
 						for neighborChunkY := enemyChunkY - 1; neighborChunkY <= enemyChunkY+1; neighborChunkY++ {
-							neighborChunkKey := fmt.Sprintf("%d,%d", neighborChunkX, neighborChunkY)
+							neighborChunkKey := makeChunkKey(neighborChunkX, neighborChunkY)
 							if !e.chunkHash[neighborChunkKey] {
 								continue
 							}
@@ -1253,7 +1298,7 @@ func (e *Engine) Update() {
 
 		// Clean up deactivated bullets once the cache timeout has passed
 		if !bullet.DeletedAt.IsZero() {
-			if time.Since(bullet.DeletedAt) > config.DeadEntitiesCacheTimeout {
+			if time.Since(bullet.DeletedAt) > config.DeadBulletCacheTimeout {
 				delete(e.state.bullets, bullet.ID)
 			}
 			continue
@@ -1284,7 +1329,7 @@ func (e *Engine) Update() {
 
 		for neighborChunkX := bulletNextChunkX - 1; neighborChunkX <= bulletNextChunkX+1; neighborChunkX++ {
 			for neighborChunkY := bulletNextChunkY - 1; neighborChunkY <= bulletNextChunkY+1; neighborChunkY++ {
-				neighborChunkKey := fmt.Sprintf("%d,%d", neighborChunkX, neighborChunkY)
+				neighborChunkKey := makeChunkKey(neighborChunkX, neighborChunkY)
 				if !e.chunkHash[neighborChunkKey] {
 					continue
 				}
@@ -1498,7 +1543,7 @@ func (e *Engine) applyBulletDamage(bullet *types.Bullet, newPosition *types.Vect
 	bulletChunkX, bulletChunkY := utils.ChunkXYFromPosition(newPosition.X, newPosition.Y)
 	for neighborChunkX := bulletChunkX - 1; neighborChunkX <= bulletChunkX+1; neighborChunkX++ {
 		for neighborChunkY := bulletChunkY - 1; neighborChunkY <= bulletChunkY+1; neighborChunkY++ {
-			neighborChunkKey := fmt.Sprintf("%d,%d", neighborChunkX, neighborChunkY)
+			neighborChunkKey := makeChunkKey(neighborChunkX, neighborChunkY)
 			if !e.chunkHash[neighborChunkKey] {
 				continue
 			}
@@ -1594,7 +1639,7 @@ func (e *Engine) handlePlayerShooting(player *types.Player) (newBulletsIDs map[s
 
 				for neighborChunkX := playerChunkX - 1; neighborChunkX <= playerChunkX+1; neighborChunkX++ {
 					for neighborChunkY := playerChunkY - 1; neighborChunkY <= playerChunkY+1; neighborChunkY++ {
-						neighborChunkKey := fmt.Sprintf("%d,%d", neighborChunkX, neighborChunkY)
+						neighborChunkKey := makeChunkKey(neighborChunkX, neighborChunkY)
 						if !e.chunkHash[neighborChunkKey] {
 							continue
 						}
@@ -1627,7 +1672,7 @@ func (e *Engine) handlePlayerShooting(player *types.Player) (newBulletsIDs map[s
 
 			for neighborChunkX := playerChunkX - 1; neighborChunkX <= playerChunkX+1; neighborChunkX++ {
 				for neighborChunkY := playerChunkY - 1; neighborChunkY <= playerChunkY+1; neighborChunkY++ {
-					neighborChunkKey := fmt.Sprintf("%d,%d", neighborChunkX, neighborChunkY)
+					neighborChunkKey := makeChunkKey(neighborChunkX, neighborChunkY)
 					if !e.chunkHash[neighborChunkKey] {
 						continue
 					}
@@ -1693,35 +1738,12 @@ func (e *Engine) handlePlayerShooting(player *types.Player) (newBulletsIDs map[s
 func (e *Engine) applyRocketExplosionDamage(explosionCenter *types.Vector2, hitObjectIDs map[string]bool, ownerID string) {
 	shooter, shooterExists := e.state.players[ownerID]
 
-	for _, enemies := range e.state.enemiesByChunk {
-		for _, enemy := range enemies {
-			if !enemy.IsAlive || hitObjectIDs[enemy.ID] {
-				continue
-			}
-
-			distance := enemy.DistanceToPoint(explosionCenter)
-			if distance < config.RocketLauncherDamageRadius {
-				// Apply damage falloff
-				damage := config.RocketLauncherDamage * (1 - distance/config.RocketLauncherDamageRadius)
-				enemy.Lives -= float32(damage)
-				if enemy.Lives <= 0 {
-					enemy.IsAlive = false
-					enemy.DeadTimer = config.EnemyDeathTraceTime
-					if enemy.Type == types.EnemyTypeTower {
-						enemy.DeadTimer = config.EnemyTowerDeathTraceTime
-					}
-
-					if shooterExists {
-						reward := enemy.Reward()
-						shooter.Money += int(reward)
-						shooter.Score += int(reward)
-						shooter.Kills++
-					}
-
-					// Maybe spawn bonus
-					e.spawnBonus(enemy)
-				}
-			}
+	// The blast radius is far smaller than a chunk, so only the explosion's
+	// chunk and its neighbours can hold enemies within reach
+	centerChunkX, centerChunkY := utils.ChunkXYFromPosition(explosionCenter.X, explosionCenter.Y)
+	for neighborChunkX := centerChunkX - 1; neighborChunkX <= centerChunkX+1; neighborChunkX++ {
+		for neighborChunkY := centerChunkY - 1; neighborChunkY <= centerChunkY+1; neighborChunkY++ {
+			e.applyRocketExplosionDamageToEnemies(e.state.enemiesByChunk[makeChunkKey(neighborChunkX, neighborChunkY)], explosionCenter, hitObjectIDs, shooter, shooterExists)
 		}
 	}
 
@@ -1749,6 +1771,38 @@ func (e *Engine) applyRocketExplosionDamage(explosionCenter *types.Vector2, hitO
 				}
 			} else {
 				player.InvulnerableTimer = config.PlayerInvulnerabilityTime
+			}
+		}
+	}
+}
+
+func (e *Engine) applyRocketExplosionDamageToEnemies(enemies map[string]*types.Enemy, explosionCenter *types.Vector2, hitObjectIDs map[string]bool, shooter *types.Player, shooterExists bool) {
+	for _, enemy := range enemies {
+		if !enemy.IsAlive || hitObjectIDs[enemy.ID] {
+			continue
+		}
+
+		distance := enemy.DistanceToPoint(explosionCenter)
+		if distance < config.RocketLauncherDamageRadius {
+			// Apply damage falloff
+			damage := config.RocketLauncherDamage * (1 - distance/config.RocketLauncherDamageRadius)
+			enemy.Lives -= float32(damage)
+			if enemy.Lives <= 0 {
+				enemy.IsAlive = false
+				enemy.DeadTimer = config.EnemyDeathTraceTime
+				if enemy.Type == types.EnemyTypeTower {
+					enemy.DeadTimer = config.EnemyTowerDeathTraceTime
+				}
+
+				if shooterExists {
+					reward := enemy.Reward()
+					shooter.Money += int(reward)
+					shooter.Score += int(reward)
+					shooter.Kills++
+				}
+
+				// Maybe spawn bonus
+				e.spawnBonus(enemy)
 			}
 		}
 	}
@@ -1865,19 +1919,33 @@ func (e *Engine) GetAllPlayers() []*types.Player {
 	return playersCopy
 }
 
-// GetGameStateDeltaForPlayer computes the delta filtered to player's surrounding chunks (-1 to 1)
-func (e *Engine) GetGameStateDeltaForPlayer(playerID string) *protocol.GameStateDeltaMessage {
+// GetGameStateDeltaForPlayer computes the delta filtered to player's surrounding
+// chunks (-1 to 1) against the last committed view. It does not modify engine
+// state: pass the returned view to CommitPlayerView once the delta has been
+// handed to the client (or was empty), otherwise the next delta repeats it.
+func (e *Engine) GetGameStateDeltaForPlayer(playerID string) (*protocol.GameStateDeltaMessage, *PlayerView) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
 	now := time.Now()
 	prevState := e.prevState[playerID]
+	if prevState == nil {
+		prevState = &EngineGameState{}
+	}
 
 	player, exists := e.state.players[playerID]
 	if !exists || !player.IsConnected {
 		// Return empty delta if player doesn't exist
-		return &protocol.GameStateDeltaMessage{}
+		return &protocol.GameStateDeltaMessage{}, nil
 	}
+
+	// Previous-view entries already handled in the per-chunk passes; the rest
+	// are reported as removed at the end
+	seenEnemies := make(map[string]bool)
+	seenWalls := make(map[string]bool)
+	seenShops := make(map[string]bool)
+	seenBonuses := make(map[string]bool)
+	seenRays := make(map[string]bool)
 
 	playerChunkX, playerChunkY := utils.ChunkXYFromPosition(player.Position.X, player.Position.Y)
 
@@ -1991,28 +2059,30 @@ func (e *Engine) GetGameStateDeltaForPlayer(playerID string) *protocol.GameState
 			}
 		}
 
-		bulletCopy := protocol.ToProtoBullet(bullet)
 		if isBulletVisible {
 			if !prevExists {
-				delta.AddedBullets[id] = bulletCopy
+				delta.AddedBullets[id] = protocol.ToProtoBullet(bullet)
 				continue
 			}
 
-			bulletUpdate := protocol.ToProtoBulletUpdate(prev, bullet)
-			if bullet.IsActive && bulletUpdate != nil {
-				delta.UpdatedBullets[id] = bulletUpdate
+			// Bullets fly in a straight line at constant speed, so clients move
+			// them from the position and velocity sent when they were added.
+			// Only the end of the flight is reported, as a removal.
+			if bullet.IsActive {
 				continue
 			}
 		}
 
 		if prevExists && prev.IsActive {
-			delta.RemovedBullets[id] = bulletCopy
+			// The full bullet is sent: clients need its final position, weapon
+			// type and deactivation time for impact effects and sounds
+			delta.RemovedBullets[id] = protocol.ToProtoBullet(bullet)
 		}
 	}
 
 	for neighborChunkX := playerChunkX - 1; neighborChunkX <= playerChunkX+1; neighborChunkX++ {
 		for neighborChunkY := playerChunkY - 1; neighborChunkY <= playerChunkY+1; neighborChunkY++ {
-			neighborChunkKey := fmt.Sprintf("%d,%d", neighborChunkX, neighborChunkY)
+			neighborChunkKey := makeChunkKey(neighborChunkX, neighborChunkY)
 			if !e.chunkHash[neighborChunkKey] {
 				continue
 			}
@@ -2047,7 +2117,7 @@ func (e *Engine) GetGameStateDeltaForPlayer(playerID string) *protocol.GameState
 					if !currentVisible {
 						delta.RemovedEnemies = append(delta.RemovedEnemies, id)
 					}
-					delete(prevState.enemiesByChunk[neighborChunkKey], id)
+					seenEnemies[id] = true
 				}
 			}
 
@@ -2063,7 +2133,7 @@ func (e *Engine) GetGameStateDeltaForPlayer(playerID string) *protocol.GameState
 					if !currentVisible {
 						delta.RemovedWalls = append(delta.RemovedWalls, id)
 					}
-					delete(prevState.wallsByChunk[neighborChunkKey], id)
+					seenWalls[id] = true
 				}
 			}
 
@@ -2114,7 +2184,7 @@ func (e *Engine) GetGameStateDeltaForPlayer(playerID string) *protocol.GameState
 					if !currentVisible {
 						delta.RemovedShops = append(delta.RemovedShops, id)
 					}
-					delete(prevState.shopsByChunk[neighborChunkKey], id)
+					seenShops[id] = true
 				}
 			}
 		}
@@ -2123,21 +2193,27 @@ func (e *Engine) GetGameStateDeltaForPlayer(playerID string) *protocol.GameState
 	// Check for removed enemies that were in visible chunks
 	for _, enemies := range prevState.enemiesByChunk {
 		for id := range enemies {
-			delta.RemovedEnemies = append(delta.RemovedEnemies, id)
+			if !seenEnemies[id] {
+				delta.RemovedEnemies = append(delta.RemovedEnemies, id)
+			}
 		}
 	}
 
 	// Check for removed walls that were in visible chunks
 	for _, walls := range prevState.wallsByChunk {
 		for id := range walls {
-			delta.RemovedWalls = append(delta.RemovedWalls, id)
+			if !seenWalls[id] {
+				delta.RemovedWalls = append(delta.RemovedWalls, id)
+			}
 		}
 	}
 
 	// Check for removed shops that were in visible chunks
 	for _, shops := range prevState.shopsByChunk {
 		for id := range shops {
-			delta.RemovedShops = append(delta.RemovedShops, id)
+			if !seenShops[id] {
+				delta.RemovedShops = append(delta.RemovedShops, id)
+			}
 		}
 	}
 
@@ -2161,13 +2237,15 @@ func (e *Engine) GetGameStateDeltaForPlayer(playerID string) *protocol.GameState
 				if bonusUpdate != nil {
 					delta.UpdatedBonuses[id] = bonusUpdate
 				}
-				delete(prevState.bonuses, id)
+				seenBonuses[id] = true
 			}
 		}
 	}
 
 	for id := range prevState.bonuses {
-		delta.RemovedBonuses = append(delta.RemovedBonuses, id)
+		if !seenBonuses[id] {
+			delta.RemovedBonuses = append(delta.RemovedBonuses, id)
+		}
 	}
 
 	for _, ray := range e.state.rays {
@@ -2191,28 +2269,21 @@ func (e *Engine) GetGameStateDeltaForPlayer(playerID string) *protocol.GameState
 		} else {
 			delta.RemovedRays = append(delta.RemovedRays, ray.ID)
 		}
-		delete(prevState.rays, ray.ID)
+		seenRays[ray.ID] = true
 	}
 
 	for id := range prevState.rays {
-		delta.RemovedRays = append(delta.RemovedRays, id)
+		if !seenRays[id] {
+			delta.RemovedRays = append(delta.RemovedRays, id)
+		}
 	}
 
-	if e.debugMode {
-		e.stats.TotalDeltaCalcTimeSinceLastReport.delta += time.Since(now)
-		e.stats.TotalDeltaCalcTime.delta += time.Since(now)
-		now = time.Now()
-	}
+	view := &PlayerView{deltaTime: time.Since(now)}
+	now = time.Now()
+	view.state = e.buildPlayerView(playerID)
+	view.updatePrevTime = time.Since(now)
 
-	e.updatePreviousState(playerID)
-
-	if e.debugMode {
-		e.stats.DeltaCalcCountSinceLastReport++
-		e.stats.TotalDeltaCalcTimeSinceLastReport.updatePrevious += time.Since(now)
-		e.stats.DeltaCalcCount++
-		e.stats.TotalDeltaCalcTime.updatePrevious += time.Since(now)
-	}
-	return delta
+	return delta, view
 }
 
 func (e *Engine) enemiesHaveWall(enemyIDs []string, wallID string) bool {

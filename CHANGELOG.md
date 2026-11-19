@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** the server no longer sends per-tick bullet positions (`GameStateDeltaMessage.updated_bullets` stays empty). Clients must move bullets themselves from the `position` and `velocity` in `added_bullets`; `removed_bullets` still carries the full bullet. Cuts delta size about 3× in firefights.
+- Deltas are only treated as delivered once queued for the client. A delta dropped because the client's send buffer was full is folded into the next one, instead of permanently desyncing the client.
+- Joining and leaving a session no longer does DB I/O on the game loop, which used to stall every session. The last player leaving saves the session in the background; rejoining before that finishes reuses the in-memory world.
+- Spent bullets are kept for 1 s instead of 5 s (enough for the rocket explosion effect), and per-player view snapshots share walls instead of copying them: roughly 60% less allocation per tick.
+- Faster collision checks: segment tests reject far-away walls by bounding box first, and rocket explosions only check enemies in nearby chunks.
 - **Breaking:** `left`/`right` now strafe sideways relative to the facing instead of rotating. `forward`/`backward` still move along the facing. Diagonal movement is normalised to the same speed.
 - `PlayerRotationSpeed` 180°/s → 720°/s (max turn rate toward the aim).
 
