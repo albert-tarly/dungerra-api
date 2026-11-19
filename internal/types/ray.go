@@ -1,8 +1,8 @@
 package types
 
 import (
-	"github.com/besuhoff/dungerra/internal/config"
-	"github.com/besuhoff/dungerra/internal/utils"
+	"github.com/albert-tarly/dungerra-api/internal/config"
+	"github.com/albert-tarly/dungerra-api/internal/utils"
 )
 
 type Ray struct {

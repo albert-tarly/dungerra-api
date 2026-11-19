@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/besuhoff/dungerra/internal/config"
-	"github.com/besuhoff/dungerra/internal/db"
-	"github.com/besuhoff/dungerra/internal/types"
+	"github.com/albert-tarly/dungerra-api/internal/config"
+	"github.com/albert-tarly/dungerra-api/internal/db"
+	"github.com/albert-tarly/dungerra-api/internal/types"
 )
 
 // The SQLite backend stores world objects as JSON, which decodes numbers as

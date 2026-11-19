@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/besuhoff/dungerra/internal/config"
-	"github.com/besuhoff/dungerra/internal/protocol"
-	"github.com/besuhoff/dungerra/internal/types"
-	"github.com/besuhoff/dungerra/internal/utils"
+	"github.com/albert-tarly/dungerra-api/internal/config"
+	"github.com/albert-tarly/dungerra-api/internal/protocol"
+	"github.com/albert-tarly/dungerra-api/internal/types"
+	"github.com/albert-tarly/dungerra-api/internal/utils"
 	"github.com/google/uuid"
 )
 

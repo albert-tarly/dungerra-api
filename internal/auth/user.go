@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/besuhoff/dungerra/internal/config"
-	"github.com/besuhoff/dungerra/internal/db"
+	"github.com/albert-tarly/dungerra-api/internal/config"
+	"github.com/albert-tarly/dungerra-api/internal/db"
 )
 
 // UserResponse is the public representation of an account.

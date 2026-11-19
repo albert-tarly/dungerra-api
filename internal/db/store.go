@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/besuhoff/dungerra/internal/config"
+	"github.com/albert-tarly/dungerra-api/internal/config"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/besuhoff/dungerra/internal/config"
+	"github.com/albert-tarly/dungerra-api/internal/config"
 	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )

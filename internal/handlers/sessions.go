@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/besuhoff/dungerra/internal/auth"
-	"github.com/besuhoff/dungerra/internal/db"
+	"github.com/albert-tarly/dungerra-api/internal/auth"
+	"github.com/albert-tarly/dungerra-api/internal/db"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 

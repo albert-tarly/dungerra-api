@@ -3,7 +3,7 @@ package utils
 import (
 	"math"
 
-	"github.com/besuhoff/dungerra/internal/config"
+	"github.com/albert-tarly/dungerra-api/internal/config"
 )
 
 // Collision detection helpers

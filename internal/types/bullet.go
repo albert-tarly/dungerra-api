@@ -3,8 +3,8 @@ package types
 import (
 	"time"
 
-	"github.com/besuhoff/dungerra/internal/config"
-	"github.com/besuhoff/dungerra/internal/utils"
+	"github.com/albert-tarly/dungerra-api/internal/config"
+	"github.com/albert-tarly/dungerra-api/internal/utils"
 )
 
 // Bullet represents a projectile in the game

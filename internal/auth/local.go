@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/besuhoff/dungerra/internal/db"
+	"github.com/albert-tarly/dungerra-api/internal/db"
 	"golang.org/x/crypto/bcrypt"
 )
 

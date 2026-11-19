@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package protocol;
 
-option go_package = "github.com/besuhoff/dungerra/internal/protocol";
+option go_package = "github.com/albert-tarly/dungerra-api/internal/protocol";
 
 // Message types
 enum MessageType {

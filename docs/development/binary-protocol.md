@@ -93,7 +93,7 @@ ws.onmessage = (event) => {
 
 ```go
 import (
-  "github.com/besuhoff/dungerra/internal/protocol"
+  "github.com/albert-tarly/dungerra-api/internal/protocol"
   "google.golang.org/protobuf/proto"
 )
 
@@ -162,6 +162,12 @@ The binary protocol is defined in `internal/protocol/messages.proto`. Key messag
 
 ```bash
 ./scripts/generate-proto.sh
+```
+
+On Windows (PowerShell):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\generate-proto.ps1
 ```
 
 ### For JavaScript/TypeScript

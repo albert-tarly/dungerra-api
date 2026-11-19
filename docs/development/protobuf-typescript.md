@@ -18,6 +18,12 @@ Run the generation script:
 ./scripts/generate-proto.sh
 ```
 
+On Windows (PowerShell):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\generate-proto.ps1
+```
+
 This creates TypeScript files in `internal/protocol/` with full JSON support.
 
 ## Usage Examples

@@ -36,7 +36,7 @@ A real-time authoritative multiplayer shooter game server written in Go with Web
 ## Project Structure
 
 ```
-dungerra/
+dungerra-api/
 ├── main.go                          # Server entry point
 ├── go.mod                           # Go module definition
 ├── .env.example                     # Environment variables template
@@ -79,7 +79,7 @@ dungerra/
 1. Clone or navigate to the project directory:
 
 ```bash
-cd /Users/spereverziev/project/walknhit/dungerra
+cd ~/dungerra-api
 ```
 
 2. Install dependencies:

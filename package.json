@@ -1,11 +1,12 @@
 {
-  "name": "dungerra",
+  "name": "dungerra-api",
   "version": "1.1.1",
   "description": "Dungeon game with protobuf support",
   "main": "dist/index.ts",
   "scripts": {
     "build": "tsc",
-    "proto:generate": "./scripts/generate-proto.sh"
+    "proto:generate": "./scripts/generate-proto.sh",
+    "proto:generate:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-proto.ps1"
   },
   "devDependencies": {
     "@protobuf-ts/plugin": "^2.11.1",
@@ -17,5 +18,8 @@
   },
   "dependencies": {
     "@protobuf-ts/runtime": "^2.11.1"
+  },
+  "allowScripts": {
+    "protobufjs@7.6.6": true
   }
 }

@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/besuhoff/dungerra/internal/protocol"
+	"github.com/albert-tarly/dungerra-api/internal/protocol"
 	"github.com/gorilla/websocket"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"google.golang.org/protobuf/encoding/protojson"

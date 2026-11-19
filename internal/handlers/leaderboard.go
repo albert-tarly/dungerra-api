@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/besuhoff/dungerra/internal/db"
+	"github.com/albert-tarly/dungerra-api/internal/db"
 )
 
 // LeaderboardHandler handles leaderboard-related HTTP requests

@@ -12,11 +12,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/besuhoff/dungerra/internal/auth"
-	"github.com/besuhoff/dungerra/internal/config"
-	"github.com/besuhoff/dungerra/internal/db"
-	"github.com/besuhoff/dungerra/internal/handlers"
-	"github.com/besuhoff/dungerra/internal/server"
+	"github.com/albert-tarly/dungerra-api/internal/auth"
+	"github.com/albert-tarly/dungerra-api/internal/config"
+	"github.com/albert-tarly/dungerra-api/internal/db"
+	"github.com/albert-tarly/dungerra-api/internal/handlers"
+	"github.com/albert-tarly/dungerra-api/internal/server"
 )
 
 var (

@@ -13,8 +13,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/besuhoff/dungerra/internal/config"
-	"github.com/besuhoff/dungerra/internal/db"
+	"github.com/albert-tarly/dungerra-api/internal/config"
+	"github.com/albert-tarly/dungerra-api/internal/db"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/besuhoff/dungerra/internal/config"
-	"github.com/besuhoff/dungerra/internal/db"
+	"github.com/albert-tarly/dungerra-api/internal/config"
+	"github.com/albert-tarly/dungerra-api/internal/db"
 )
 
 func setupLocalAuth(t *testing.T) (*LocalAuthHandler, *UserHandler) {

@@ -5,10 +5,10 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/besuhoff/dungerra/internal/config"
-	"github.com/besuhoff/dungerra/internal/db"
-	"github.com/besuhoff/dungerra/internal/types"
-	"github.com/besuhoff/dungerra/internal/utils"
+	"github.com/albert-tarly/dungerra-api/internal/config"
+	"github.com/albert-tarly/dungerra-api/internal/db"
+	"github.com/albert-tarly/dungerra-api/internal/types"
+	"github.com/albert-tarly/dungerra-api/internal/utils"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 

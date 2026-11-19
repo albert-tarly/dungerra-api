@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/besuhoff/dungerra/internal/config"
+	"github.com/albert-tarly/dungerra-api/internal/config"
 	"github.com/google/uuid"
 )
 
