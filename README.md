@@ -20,7 +20,7 @@ A real-time authoritative multiplayer shooter game server written in Go with Web
   - User profiles with stats, progress tracking
   - Game session management and state persistence
 - **Core Game Mechanics**:
-  - Twin-stick controls: world-relative movement, facing turns toward the client's aim (mouse cursor)
+  - Mouse-aim controls: facing turns toward the client's aim (mouse cursor); move forward/backward along the facing and strafe left/right
   - Lives system with invulnerability after taking damage
   - Bullet recharge system (6 bullets, recharge over time)
   - Shooting mechanics with fire rate limiting
@@ -290,7 +290,7 @@ For details on binary protocol usage, see [Binary Protocol Documentation](docs/d
 }
 ```
 
-- `forward` / `backward` / `left` / `right`: move up (-Y) / down (+Y) / left (-X) / right (+X), independent of facing. Diagonals move at normal speed.
+- `forward` / `backward`: move along / against the current facing. `left` / `right`: strafe to the player's own left / right. Diagonals move at normal speed.
 - `aimRotation` (optional): desired facing in degrees (0 = +Y, `atan2(-dx, dy)` for a target offset `dx, dy`). The server turns toward it at a capped rate. If omitted, the last aim is kept.
 
 #### Shoot

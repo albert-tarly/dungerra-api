@@ -927,9 +927,9 @@ func (x *Ray) GetType() string {
 	return ""
 }
 
-// Player input. Movement is world-relative (twin-stick) and independent of
-// aim: forward = up (-Y), backward = down (+Y), left = -X, right = +X.
-// Diagonals move at the same speed as straight lines.
+// Player input. Movement is relative to the player's facing: forward/backward
+// move along it, left/right strafe perpendicular to it (the player's own
+// left/right). Diagonals move at the same speed as straight lines.
 type InputMessage struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Forward         bool                   `protobuf:"varint,1,opt,name=forward,proto3" json:"forward,omitempty"`

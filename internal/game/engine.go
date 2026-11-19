@@ -525,28 +525,37 @@ func (e *Engine) UpdatePlayerInput(playerID string, input types.InputPayload) {
 	e.playerInputState[playerID] = &input
 }
 
-// movementDirection returns the world-relative unit vector the player wants to
-// move in (forward = -Y, backward = +Y, left = -X, right = +X), or (0, 0).
+// movementDirection returns the world-space unit vector the player wants to
+// move in, relative to their facing (rotationDeg): forward/backward along the
+// facing, left/right strafing perpendicular to it. Returns (0, 0) when idle.
 // Diagonals are normalised so they are not faster than straight moves.
-func movementDirection(input *types.InputPayload) (float64, float64) {
-	x, y := 0.0, 0.0
+func movementDirection(input *types.InputPayload, rotationDeg float64) (float64, float64) {
+	strafe, forward := 0.0, 0.0
 	if input.Left {
-		x--
+		strafe--
 	}
 	if input.Right {
-		x++
+		strafe++
 	}
 	if input.Forward {
-		y--
+		forward++
 	}
 	if input.Backward {
-		y++
+		forward--
 	}
-	if x != 0 && y != 0 {
-		x /= math.Sqrt2
-		y /= math.Sqrt2
+	if strafe == 0 && forward == 0 {
+		return 0, 0
 	}
-	return x, y
+	if strafe != 0 && forward != 0 {
+		strafe /= math.Sqrt2
+		forward /= math.Sqrt2
+	}
+
+	rad := rotationDeg * math.Pi / 180
+	sin, cos := math.Sin(rad), math.Cos(rad)
+	// Facing vector is (-sin, cos); the player's right-hand side (screen Y points
+	// down) is (-cos, -sin), e.g. facing up (180°) → right is +X.
+	return -sin*forward - cos*strafe, cos*forward - sin*strafe
 }
 
 func (e *Engine) updatePreviousState(playerID string) {
@@ -749,8 +758,8 @@ func (e *Engine) Update() {
 				}
 			}
 
-			// Movement is world-relative and independent of facing
-			moveX, moveY := movementDirection(input)
+			// Movement is relative to facing: forward/backward and strafe
+			moveX, moveY := movementDirection(input, player.Rotation)
 			if moveX != 0 || moveY != 0 {
 				// Calculate movement
 				intendedDx := moveX * config.PlayerSpeed * deltaTime

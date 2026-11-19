@@ -307,9 +307,9 @@ export interface Ray {
     type: string;
 }
 /**
- * Player input. Movement is world-relative (twin-stick) and independent of
- * aim: forward = up (-Y), backward = down (+Y), left = -X, right = +X.
- * Diagonals move at the same speed as straight lines.
+ * Player input. Movement is relative to the player's facing: forward/backward
+ * move along it, left/right strafe perpendicular to it (the player's own
+ * left/right). Diagonals move at the same speed as straight lines.
  *
  * @generated from protobuf message protocol.InputMessage
  */

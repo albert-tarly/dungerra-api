@@ -60,7 +60,7 @@ const ws = new WebSocket("ws://localhost:8080/ws?protocol=binary");
 ws.binaryType = "arraybuffer";
 
 // Send input
-// forward/backward/left/right move up/down/left/right on screen;
+// forward/backward move along the facing, left/right strafe sideways;
 // aimRotation is the desired facing in degrees (0 = +Y, atan2(-dx, dy)).
 function sendInput(forward, backward, left, right, aimRotation) {
   const message = GameMessage.create({

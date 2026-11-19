@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Breaking:** movement is world-relative (twin-stick). `forward`/`backward`/`left`/`right` now move up/down/left/right instead of moving along the facing and rotating. Diagonal movement is normalised to the same speed.
+- **Breaking:** `left`/`right` now strafe sideways relative to the facing instead of rotating. `forward`/`backward` still move along the facing. Diagonal movement is normalised to the same speed.
 - `PlayerRotationSpeed` 180°/s → 720°/s (max turn rate toward the aim).
 
 ### Removed

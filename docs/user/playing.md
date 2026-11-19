@@ -4,11 +4,12 @@ Distances below are in game **units**. For scale, your character is 24 units wid
 
 ## Movement
 
-Moving and aiming are separate, so you can run one way and shoot another:
+You face where you aim, and you move relative to the way you are facing:
 
 | Action | Effect |
 | --- | --- |
-| **Move up / down / left / right** | Move in that direction on screen at 300 units/second, wherever you are aiming. Moving diagonally is not faster. |
+| **Forward / backward** | Move toward or away from where you are facing at 300 units/second |
+| **Strafe left / right** | Step sideways to your own left or right at the same speed, without turning. Moving diagonally (forward and sideways together) is not faster. |
 | **Aim** | Turn to face the point you aim at, at up to 720° per second (turning around takes a quarter of a second) |
 | **Shoot** | Fire the selected weapon in the direction you are facing. Hold it to keep firing as fast as the weapon allows. |
 
