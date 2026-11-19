@@ -917,8 +917,8 @@ func (e *Engine) Update() {
 
 				detectionPoint, detectionDistance := player.DetectionParams()
 				if enemy.Type == types.EnemyTypeSniper {
-					// Snipers have extended detection distance
-					detectionDistance = config.SightRadius
+					// Snipers see in the dark, but only up to their max range
+					detectionDistance = config.EnemySniperRange
 				}
 
 				dist := enemy.DistanceToPoint(detectionPoint)

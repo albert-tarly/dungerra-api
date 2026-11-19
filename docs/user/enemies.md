@@ -20,7 +20,7 @@ About 81% of guards are soldiers, 14% are lieutenants and 5% are snipers.
 Enemies wake up when any player comes within 1,500 units. A guard then has to *see* you before it attacks:
 
 - **Soldiers, lieutenants and towers** notice you when they are inside your **torch light** (about 200 units from you). With night-vision goggles on, your torch is out and they only notice you within about **100 units**.
-- **Snipers** can spot you from up to **1,500 units**, light or no light.
+- **Snipers** can spot you from up to **800 units**, light or no light.
 - Every enemy needs a **clear line of sight**. Walls block it, and so do other enemies standing in the way.
 
 If several players are visible, an enemy targets the closest one.
@@ -48,7 +48,7 @@ A tougher, more aggressive soldier.
 A rare, dangerous guard with a laser sight.
 
 - Never moves from its post.
-- Spots you from up to 1,500 units away if nothing blocks the line of sight.
+- Spots you from up to **800 units** away if nothing blocks the line of sight. Beyond that it loses you and its laser goes out, so distance is a defence too.
 - When it picks a target it shows a **red laser sight** on that player. Anyone within range can see the laser, even in the dark.
 - It fires **2.5 seconds after locking on**, and every 2.5 seconds after that. The shot hits **instantly**, so you can't dodge it once it has been fired.
 - **Break line of sight** to make it lose you. Duck behind a wall before the 2.5 seconds are up. When it finds a new target, the 2.5-second countdown starts again.

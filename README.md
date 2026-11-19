@@ -37,39 +37,70 @@ A real-time authoritative multiplayer shooter game server written in Go with Web
 
 ```
 dungerra-api/
-├── main.go                          # Server entry point
-├── go.mod                           # Go module definition
-├── .env.example                     # Environment variables template
-├── internal/
-│   ├── auth/
-│   │   ├── jwt.go                  # JWT token generation and validation
-│   │   ├── google.go               # Google OAuth provider
-│   │   ├── local.go                # Local username + password provider
-│   │   └── user.go                 # Provider-independent endpoints (/auth/user, /auth/providers)
-│   ├── config/
-│   │   └── config.go               # Configuration management
-│   ├── db/
-│   │   ├── store.go                # Repository interfaces + backend selection
-│   │   ├── mongo.go                # MongoDB backend
-│   │   ├── sqlite.go               # Embedded SQLite backend (schema migrations included)
-│   │   └── models.go               # Database models (User, GameSession)
-│   ├── game/
-│   │   ├── engine.go               # Game logic and physics
-│   │   └── session.go              # Game session management and conversion
-│   ├── server/
-│   │   └── server.go               # WebSocket server and client handling
-│   ├── types/
-│   │   ├── types.go                # Game entities (Player, Bullet, etc.)
-│   │   └── messages.go             # Client-server message protocol
-│   └── protocol/
-│       ├── messages.proto          # Protocol Buffers schema
-│       ├── messages.pb.go          # Generated protobuf code
-│       └── converters.go           # Type conversions
+├── main.go                         # Server entry point, HTTP routes, CORS
+├── go.mod / go.sum                 # Go module definition
+├── package.json                    # Node tooling for protobuf TypeScript generation
+├── .env.example                    # Environment variables template
+├── CHANGELOG.md                    # Release notes
+├── CLAUDE.md                       # Guidance for AI coding assistants
+├── dist/
+│   └── index.ts                    # TypeScript entry point re-exporting the generated protocol types
+├── docs/
+│   ├── development/                # Developer docs (API, auth, database, binary protocol, deployment, TS usage)
+│   └── user/                       # Player guide (getting started, weapons, enemies, items, scoring, FAQ)
+├── scripts/
+│   ├── generate-proto.sh           # Regenerate Go + TypeScript protobuf code (bash)
+│   └── generate-proto.ps1          # Same, for Windows PowerShell
+└── internal/
+    ├── auth/
+    │   ├── jwt.go                  # JWT token generation and validation
+    │   ├── google.go               # Google OAuth provider
+    │   ├── local.go                # Local username + password provider
+    │   ├── local_test.go
+    │   └── user.go                 # Provider-independent endpoints (/auth/user, /auth/providers)
+    ├── config/
+    │   └── config.go               # Environment config + all gameplay tuning constants
+    ├── db/
+    │   ├── store.go                # Repository interfaces + backend selection
+    │   ├── mongo.go                # MongoDB backend
+    │   ├── sqlite.go               # Embedded SQLite backend (schema migrations included)
+    │   ├── models.go               # Database models (User, GameSession, LeaderboardEntry)
+    │   └── store_test.go           # Contract tests run against every backend
+    ├── game/
+    │   ├── engine.go               # Game loop, physics, AI and combat
+    │   ├── session.go              # Engine ↔ database state conversion
+    │   └── session_test.go
+    ├── handlers/
+    │   ├── sessions.go             # REST: create, list and join game sessions
+    │   └── leaderboard.go          # REST: global leaderboard
+    ├── server/
+    │   ├── server.go               # Game server: sessions, client registry, broadcasting, saving
+    │   └── websocket.go            # Per-client WebSocket read/write pumps, JSON + binary decoding
+    ├── types/
+    │   ├── types.go                # Game state, input payload, inventory types
+    │   ├── player.go               # Player entity
+    │   ├── enemy.go                # Enemy entity (soldier, lieutenant, sniper, tower)
+    │   ├── bullet.go               # Bullets and projectiles
+    │   ├── ray.go                  # Hitscan rays (railgun, sniper)
+    │   ├── bonus.go                # Pick-ups (aid kits, goggles, chests, drops)
+    │   ├── shop.go                 # Shops and their inventory
+    │   ├── wall.go                 # Walls
+    │   ├── screenobject.go         # Common base for positioned objects
+    │   └── vector2.go              # 2D vector math
+    ├── utils/
+    │   ├── math.go                 # Collision and geometry helpers, chunk coordinates
+    │   └── math_test.go
+    └── protocol/
+        ├── messages.proto          # Protocol Buffers schema (source of truth for the wire format)
+        ├── messages.pb.go          # Generated Go code — do not edit
+        ├── messages.ts             # Generated TypeScript code — do not edit
+        └── converters.go           # Conversions between game types and protobuf messages
 ```
 
 ## Prerequisites
 
-- Go 1.21 or higher
+- Go 1.24 or higher
+- Node.js + `protoc` — only to regenerate protobuf code (`npm run proto:generate`)
 - MongoDB (Atlas or local instance) — only when `DB_DRIVER=mongodb`; otherwise the server uses an embedded SQLite file and needs no database setup
 - Google OAuth credentials ([Get them here](https://console.cloud.google.com/)) — only when `GOOGLE_AUTH_ENABLED=true`; local username/password accounts need no external setup
 - Git (for dependency management)
@@ -362,38 +393,17 @@ For details on binary protocol usage, see [Binary Protocol Documentation](docs/d
 
 ## Game Configuration
 
-Key constants can be modified in `internal/types/types.go`:
+All gameplay tuning constants are in the `const` block of `internal/config/config.go`, grouped by area:
 
-```go
-// Player constants
-PlayerLives               = 5        // Starting lives
-PlayerSpeed               = 300.0    // Units per second
-PlayerSize                = 24.0     // Collision size
-PlayerRotationSpeed       = 180.0    // Degrees per second
-PlayerShootDelay          = 0.2      // Seconds between shots
-PlayerMaxBullets          = 6        // Max bullets before reload
-PlayerBulletRechargeTime  = 1.0      // Seconds per bullet recharge
-PlayerBulletSpeed         = 420.0    // Bullet velocity
-PlayerInvulnerabilityTime = 1.0      // Seconds after hit
-PlayerSpawnInvulnerabilityTime = 3.0 // Seconds after spawn
+- **Player**: lives, speed, size, rotation speed, invulnerability times, kill reward, inventory drop lifetime
+- **Weapons**: blaster, shotgun, rocket launcher and railgun sections
+- **Enemies**: shared enemy values, plus soldier, lieutenant, sniper and tower sections (lives, range, reward, drop chances)
+- **Bonuses**: aid kit healing, night-vision duration, pick-up sizes
+- **World and vision**: chunk size, sight radius, wall density, torch radius
+- **Session**: save interval and game loop rate (`GameLoopInterval`, 30 updates per second)
+- **Shop and tower loot**: stock probabilities and quantities
 
-// Enemy constants
-EnemySpeed            = 120.0    // Patrol speed
-EnemySize             = 24.0     // Collision size
-EnemyLives            = 1        // Health
-EnemyShootDelay       = 1.0      // Seconds between shots
-EnemyBulletSpeed      = 240.0    // Bullet velocity
-EnemyReward           = 10.0     // Money dropped
-EnemyDropChance       = 0.3      // 30% bonus drop chance
-
-// Bonus constants
-AidKitHealAmount  = 2        // Lives restored
-GogglesActiveTime = 20.0     // Seconds of night vision
-
-// World constants
-ChunkSize = 800.0      // Chunk generation size
-TorchRadius = 200.0    // Vision radius
-```
+The values change with balancing, so check the file itself rather than copying them elsewhere. If you change a value that players can see, also update the matching page in [`docs/user/`](docs/user/README.md).
 
 ## Building for Production
 
@@ -411,36 +421,25 @@ Run the compiled binary:
 
 ## Testing
 
-### Test Binary Protocol
-
 ```bash
-# Run server
-go run main.go
-
-# In another terminal, run test client with binary protocol
-go run cmd/test-client/main.go -binary
-
-# Or test with JSON protocol (default)
-go run cmd/test-client/main.go
+go test ./...
 ```
 
-The test client will connect, send player input, and display received game states.
+The tests need no external services. The storage contract tests in `internal/db/store_test.go` always run against SQLite. To run them against MongoDB too, set `MONGODB_TEST_URL`.
+
+To check the binary protocol by hand, connect a client with `protocol=binary` (see [Binary Protocol Documentation](docs/development/binary-protocol.md)).
 
 ## Development
 
 ### Adding New Features
 
 1. **Game Logic**: Modify `internal/game/engine.go`
-2. **Network Protocol**: Update message types in `internal/types/messages.go`
-3. **Server Behavior**: Adjust `internal/server/server.go`
-
-### Testing
-
-Run tests (when implemented):
-
-```bash
-go test ./...
-```
+2. **Gameplay tuning**: Adjust constants in `internal/config/config.go`
+3. **Entities**: Add or change behaviour in `internal/types/`
+4. **Network Protocol**: Edit `internal/protocol/messages.proto`, run `npm run proto:generate` (`npm run proto:generate:win` on Windows), then update `internal/protocol/converters.go`
+5. **Server Behavior**: Adjust `internal/server/server.go` (sessions, broadcasting) or `internal/server/websocket.go` (per-client I/O)
+6. **REST endpoints**: Add handlers in `internal/handlers/` and register them in `main.go`
+7. **Storage**: Extend the interfaces in `internal/db/store.go` and implement them in both `sqlite.go` and `mongo.go`
 
 ## Client Implementation Example
 

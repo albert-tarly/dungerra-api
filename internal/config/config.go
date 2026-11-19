@@ -219,6 +219,7 @@ const (
 	// Enemy sniper constants
 	EnemySniperLives             = 2.0
 	EnemySniperShootDelay        = 2.5   // Seconds
+	EnemySniperRange             = 800.0 // Max distance to spot, aim at and hit a player
 	EnemySniperReward            = 100.0 // Money reward
 	EnemySniperDropChanceAmmo    = 0.5   // 50% chance to drop railgun ammo
 	EnemySniperAmmoMinQuantity   = 5

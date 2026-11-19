@@ -63,8 +63,14 @@ func (e *Enemy) ShootAt(target *Vector2) *Bullet {
 
 	if e.Type == EnemyTypeSniper {
 		weaponType = WeaponTypeRailgun
+		// Hitscan beam from the gun to the target, capped at the sniper's range
 		velocity.X = (target.X - enemyGunPoint.X)
 		velocity.Y = (target.Y - enemyGunPoint.Y)
+		if length := math.Hypot(velocity.X, velocity.Y); length > config.EnemySniperRange {
+			scale := config.EnemySniperRange / length
+			velocity.X *= scale
+			velocity.Y *= scale
+		}
 	}
 
 	return &Bullet{

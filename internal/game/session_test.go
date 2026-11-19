@@ -12,6 +12,11 @@ import (
 // The SQLite backend stores world objects as JSON, which decodes numbers as
 // float64 (BSON yields int32). Shop inventory must survive that round-trip.
 func TestShopInventorySurvivesJSONRoundTrip(t *testing.T) {
+	// NewEngine reads the global config, which is normally set by LoadConfig at startup
+	prevConfig := config.AppConfig
+	config.AppConfig = &config.Config{}
+	t.Cleanup(func() { config.AppConfig = prevConfig })
+
 	src := NewEngine("s")
 	src.state.shopsByChunk["0,0"] = map[string]*types.Shop{
 		"shop1": {
