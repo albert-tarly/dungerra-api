@@ -23,7 +23,12 @@ Each item has a hotkey in your client. The action happens when you **release** t
 
 ## Picking things up
 
-Walk over an item on the ground to pick it up. Its contents go straight into your inventory. Aid kits and goggles are **stored, not used**, so you decide when to use them.
+Walk over an item on the ground to pick it up. Its contents go straight into your inventory, except aid kits when you are hurt:
+
+- **Aid kits** are **used at once** while you are below 6 lives, one at a time until you are back to full. Any you don't need are stored for later. A chest with 3 aid kits picked up at 4 lives heals you to 6 and stores 1.
+- **Goggles** are always **stored, not used**, so you decide when to put them on.
+
+Aid kits bought in a shop are always stored.
 
 There are three kinds of item on the ground:
 

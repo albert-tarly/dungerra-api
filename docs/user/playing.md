@@ -21,7 +21,7 @@ The server runs the game at 30 updates per second and makes all the decisions ab
 
 - You have **6 lives** (hit points). Most hits take 1 life. Rockets and some weapons take more, and shotgun pellets take a fraction of a life.
 - After you take a hit and survive, you are **invulnerable for 1 second**. Nothing can hurt you during that time, not even explosions.
-- Use an **aid kit** to get back 1 life, up to the maximum of 6. See [Items, Loot and Shops](items-and-shops.md).
+- Use an **aid kit** to get back 1 life, up to the maximum of 6. Aid kits you pick up while hurt are used at once. See [Items, Loot and Shops](items-and-shops.md).
 
 ## Light and vision
 

@@ -4,6 +4,7 @@
 
 **Survival**
 - Use your 3 seconds of spawn invulnerability to get your bearings, not to charge a tower.
+- Hurt? Walk over an aid kit: it heals you as you pick it up.
 - Keep at least one aid kit, and don't use it at full health. It is used up and heals nothing.
 - A red laser on you means a sniper is about to fire. You have about 2.5 seconds to get behind a wall.
 - Watch your rocket splash. Firing at a wall right in front of you hurts you.
@@ -33,7 +34,7 @@
 It is outside every light source. Move closer, put on goggles, or stay near teammates whose torches light the area.
 
 **Why didn't my aid kit or goggles get used when I picked them up?**
-Items you pick up go into your inventory. Use them with their hotkey.
+Aid kits are only used on pickup while you are below 6 lives; at full health they go into your inventory. Goggles always go into your inventory. Use stored items with their hotkey.
 
 **Why can't I switch to the shotgun / rocket launcher / railgun?**
 You don't own it yet. Buy it in a shop or take it from a chest.

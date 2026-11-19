@@ -177,8 +177,22 @@ func (p *Player) UseAidKit() bool {
 	if !canUse {
 		return false
 	}
-	p.Lives = float32(math.Min(float64(p.Lives+config.AidKitHealAmount), float64(config.PlayerLives)))
+	p.heal(config.AidKitHealAmount)
 	return true
+}
+
+func (p *Player) heal(amount float64) {
+	p.Lives = float32(math.Min(float64(p.Lives)+amount, float64(config.PlayerLives)))
+}
+
+// applyPickedUpAidKits uses picked-up aid kits straight away while the player
+// is below full health and returns how many are left over for the inventory.
+func (p *Player) applyPickedUpAidKits(quantity int32) int32 {
+	for quantity > 0 && p.Lives < float32(config.PlayerLives) {
+		p.heal(config.AidKitHealAmount)
+		quantity--
+	}
+	return quantity
 }
 
 func (p *Player) UseGoggles() bool {
@@ -307,7 +321,16 @@ func (p *Player) PickupBonus(bonus *Bonus) {
 			continue
 		}
 
-		p.AddInventoryItem(inventoryItem.Type, inventoryItem.Quantity)
+		quantity := inventoryItem.Quantity
+		if inventoryItem.Type == InventoryItemAidKit {
+			// Heal right away if hurt; only kits that aren't needed are stored
+			quantity = p.applyPickedUpAidKits(quantity)
+			if quantity == 0 {
+				continue
+			}
+		}
+
+		p.AddInventoryItem(inventoryItem.Type, quantity)
 	}
 	bonus.Inventory = []InventoryItem{}
 	bonus.PickedUpBy = p.ID

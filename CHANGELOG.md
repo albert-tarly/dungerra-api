@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Aid kits picked up while below full health (6 lives) are used immediately, one at a time until full; only the rest go into the inventory. Previously every picked-up kit was stored. Shop purchases are still stored.
 - **Breaking:** the server no longer sends per-tick bullet positions (`GameStateDeltaMessage.updated_bullets` stays empty). Clients must move bullets themselves from the `position` and `velocity` in `added_bullets`; `removed_bullets` still carries the full bullet. Cuts delta size about 3× in firefights.
 - Deltas are only treated as delivered once queued for the client. A delta dropped because the client's send buffer was full is folded into the next one, instead of permanently desyncing the client.
 - Joining and leaving a session no longer does DB I/O on the game loop, which used to stall every session. The last player leaving saves the session in the background; rejoining before that finishes reuses the in-memory world.
