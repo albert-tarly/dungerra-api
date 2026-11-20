@@ -124,7 +124,9 @@ Implemented as specified in the sidecar contract above. Usage is documented in [
 
 The wire protocol, DB schema and auth flow are unchanged.
 
-### Phase 2: dungerra desktop build target
+### Phase 2: dungerra desktop build target — done
+
+`npm run build:desktop` writes `dist-desktop/` (kept apart from the Pages `dist/`). The deploy workflow builds it as a check but does not publish it.
 
 - In `config.ts`: `API_DOMAIN = window.location.origin` when `TARGET=desktop`. The web build is unchanged.
 - The router basename and `publicPath` come from the target: `/` for desktop, `/dungerra/` for web. Desktop builds do not emit `404.html`.
