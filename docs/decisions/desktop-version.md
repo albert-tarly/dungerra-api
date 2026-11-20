@@ -157,7 +157,7 @@ Implemented in [albert-tarly/dungerra-desktop](https://github.com/albert-tarly/d
 - **Capabilities:** navigation to `http://*` is allowed. Remote origins get no Tauri API access.
 - **Platform specifics:** `NSLocalNetworkUsageDescription` on macOS. An optional NSIS hook on Windows adds a firewall rule.
 
-### Phase 4: CI and release (dungerra-desktop) — written, first green run pending
+### Phase 4: CI and release (dungerra-desktop) — done (both builds green; the tag release job has not run yet)
 
 `.github/workflows/build.yml` in dungerra-desktop. It fails clearly if the `dungerra-api` commit pinned by the client predates desktop mode.
 
@@ -168,7 +168,9 @@ Implemented in [albert-tarly/dungerra-desktop](https://github.com/albert-tarly/d
 - **Triggers:** tags `v*` produce a draft GitHub Release. `workflow_dispatch` takes SHAs.
 - **Signing:** none for now. Later: Apple Developer ID plus notarization, a Windows code-signing certificate, and the Tauri updater.
 
-### Phase 5: documentation
+### Phase 5: documentation — done
+
+The player page is [docs/user/desktop-app.md](../user/desktop-app.md). The client also gained an in-game menu (Escape → Resume / Leave Game), because the app window has no browser Back button to leave a game.
 
 - Developer docs: `docs/development/deployment.md` (desktop mode, the sidecar contract).
 - Player docs: a `docs/user/` page on playing offline and on LAN (hosting, joining, firewall and Gatekeeper prompts, joining from a browser).

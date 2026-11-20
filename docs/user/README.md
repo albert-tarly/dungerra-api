@@ -15,6 +15,7 @@ Destroy enemies to earn money, spend it on better weapons, and try to stay alive
 | [Items, Loot and Shops](items-and-shops.md) | Inventory, aid kits, goggles, chests, shops and prices |
 | [Score and Leaderboard](scoring.md) | How score is earned and how it gets onto the leaderboard |
 | [Tips and FAQ](tips-and-faq.md) | Strategy advice and answers to common questions |
+| [Desktop App](desktop-app.md) | Solo play without internet, hosting and joining games on a local network |
 
 ## Game at a glance
 
