@@ -92,7 +92,7 @@ Everything below is opt-in. Without these settings, the server behaves exactly a
 The shell runs the sidecar with:
 
 - `LOCAL_AUTH_ENABLED=true` and `GOOGLE_AUTH_ENABLED=false`
-- an absolute `DATA_DIR`: `%APPDATA%\Dungerra` on Windows, `~/Library/Application Support/Dungerra` on macOS
+- an absolute `DATA_DIR`: the app data directory, named after the app identifier (see Phase 3)
 - `STATIC_DIR` set to the bundled `web/` folder
 
 It reads stderr to show a fatal configuration error in the launcher.
@@ -132,7 +132,21 @@ The wire protocol, DB schema and auth flow are unchanged.
 - The router basename and `publicPath` come from the target: `/` for desktop, `/dungerra/` for web. Desktop builds do not emit `404.html`.
 - Add `npm run build:desktop` (via `cross-env`). CI also builds it.
 
-### Phase 3: dungerra-desktop shell
+### Phase 3: dungerra-desktop shell — done (Windows verified, macOS untested)
+
+Implemented in [albert-tarly/dungerra-desktop](https://github.com/albert-tarly/dungerra-desktop). Its README covers usage. Decisions made during implementation:
+
+- **Sidecar launch:** the sidecar is started with `std::process` rather than the Tauri shell plugin, which has no way to close a child's stdin. The binary sits next to the app executable.
+- **Data folder:** Tauri's app data directory, named after the app identifier: `%APPDATA%\io.github.albert-tarly.dungerra` on Windows, `~/Library/Application Support/io.github.albert-tarly.dungerra` on macOS. The server's latest stderr is kept in `server.log` there.
+- **Solo port:** solo prefers fixed port **47823** and falls back to any free port. The client stores its sign-in per origin, so a random port would sign the player out on every launch.
+- **Navigation:** the launcher opens game pages through a Rust command (`open_game`). The game menu has **Back to Launcher** (stops the server) and **Toggle Full Screen**.
+- **Windows Firewall:** no firewall rule is added, because the per-user installer has no admin rights. On a network marked Public, LAN guests (and even the host's own LAN IP) are blocked until the player allows `dungerra-server` in the Windows prompt.
+- **Verified on Windows** by driving the built app through WebView2 DevTools:
+  - the launcher, solo play and the in-game render
+  - sign-in surviving a restart
+  - hosting, the probe, and stopping the host
+  - a graceful server stop when the app closes
+- **Not verified:** joining from a second machine, and anything on macOS. Phase 0 is still open.
 
 - **Rust commands:**
   - `start_server(mode, port)`: spawn the sidecar, wait for `DUNGERRA_READY`, then return the URL
@@ -143,7 +157,9 @@ The wire protocol, DB schema and auth flow are unchanged.
 - **Capabilities:** navigation to `http://*` is allowed. Remote origins get no Tauri API access.
 - **Platform specifics:** `NSLocalNetworkUsageDescription` on macOS. An optional NSIS hook on Windows adds a firewall rule.
 
-### Phase 4: CI and release (dungerra-desktop)
+### Phase 4: CI and release (dungerra-desktop) — written, first green run pending
+
+`.github/workflows/build.yml` in dungerra-desktop. It fails clearly if the `dungerra-api` commit pinned by the client predates desktop mode.
 
 - **Matrix:** `windows-latest` and `macos-latest`. On macOS, build the Go binary for arm64 and amd64 and merge them with `lipo` into `dungerra-server-universal-apple-darwin`, then run `tauri build --target universal-apple-darwin`.
 - **Go build:** `CGO_ENABLED=0 -trimpath -ldflags "-s -w"`. Name binaries with the target-triple suffix that Tauri expects.
