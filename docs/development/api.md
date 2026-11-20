@@ -387,6 +387,22 @@ Returns detailed statistics for a specific user.
 - `400 Bad Request`: Invalid user ID format
 - `404 Not Found`: User not found
 
+## Server Version
+
+```
+GET /api/v1/version
+```
+
+No authentication. Returns the server's game version. The desktop launcher probes it before joining a LAN host.
+
+**Response:** `200 OK`
+
+```json
+{
+  "game_version": "1.4.0"
+}
+```
+
 ## WebSocket Endpoint
 
 ### Connect to Game

@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -23,19 +24,31 @@ type Config struct {
 	APIBaseURL               string
 	FrontendURL              string
 	AccessTokenExpireMinutes int
+	Host                     string // HOST: listen host (the -host flag overrides it)
 	Port                     string
 	UseTLS                   bool
 	TLSCert                  string
 	TLSKey                   string
 	EngineDebugMode          bool
+	DataDir                  string // DATA_DIR: per-user data directory (desktop mode); empty when unset
+	StaticDir                string // STATIC_DIR: built web client to serve at "/"; empty disables
 }
 
 var AppConfig *Config
 
+// LoadOptions tunes how LoadConfig reads its sources.
+type LoadOptions struct {
+	// SkipDotEnv ignores a .env file in the working directory. The desktop
+	// app sets it, because its working directory is not under its control.
+	SkipDotEnv bool
+}
+
 // LoadConfig loads configuration from environment variables
-func LoadConfig() *Config {
+func LoadConfig(opts LoadOptions) *Config {
 	// Load .env file if it exists
-	if err := godotenv.Load(); err != nil {
+	if opts.SkipDotEnv {
+		log.Println("Skipping .env file, using environment variables")
+	} else if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using environment variables")
 	}
 
@@ -66,11 +79,36 @@ func LoadConfig() *Config {
 		APIBaseURL:               getEnvOrDefault("API_BASE_URL", "http://localhost:8080"),
 		FrontendURL:              getEnvOrDefault("FRONTEND_URL", "http://localhost:9000"),
 		AccessTokenExpireMinutes: expireMinutes,
+		Host:                     getEnvOrDefault("HOST", "localhost"),
 		Port:                     getEnvOrDefault("PORT", "8080"),
 		UseTLS:                   useTLS,
 		TLSCert:                  getEnvOrDefault("TLS_CERT", ""),
 		TLSKey:                   getEnvOrDefault("TLS_KEY", ""),
 		EngineDebugMode:          engineDebugMode,
+		DataDir:                  getEnvOrDefault("DATA_DIR", ""),
+		StaticDir:                getEnvOrDefault("STATIC_DIR", ""),
+	}
+
+	// Desktop mode keeps everything in one per-user directory, because the
+	// working directory of a bundled app is arbitrary. An explicit SQLITE_PATH
+	// still wins.
+	if config.DataDir != "" {
+		abs, err := filepath.Abs(config.DataDir)
+		if err != nil {
+			log.Fatalf("Invalid DATA_DIR %q: %v", config.DataDir, err)
+		}
+		config.DataDir = abs
+		if err := os.MkdirAll(config.DataDir, 0o700); err != nil {
+			log.Fatalf("Cannot create DATA_DIR %q: %v", config.DataDir, err)
+		}
+		if os.Getenv("SQLITE_PATH") == "" {
+			config.SQLitePath = filepath.Join(config.DataDir, "dungerra.db")
+		}
+	}
+	if config.StaticDir != "" {
+		if _, err := os.Stat(filepath.Join(config.StaticDir, "index.html")); err != nil {
+			log.Fatalf("STATIC_DIR %q must contain index.html: %v", config.StaticDir, err)
+		}
 	}
 
 	// Validate required fields
@@ -96,8 +134,17 @@ func LoadConfig() *Config {
 	default:
 		log.Fatalf("Unsupported DB_DRIVER %q (expected \"mongodb\" or \"sqlite\")", config.DBDriver)
 	}
+	if config.SecretKey == "" && config.DataDir != "" {
+		// A desktop install has nobody to set a secret, so it generates one
+		// once and keeps it, which keeps issued tokens valid across restarts.
+		key, err := LoadOrCreateSecretKey(filepath.Join(config.DataDir, SecretKeyFileName))
+		if err != nil {
+			log.Fatalf("SECRET_KEY is not set and the generated key is unusable: %v", err)
+		}
+		config.SecretKey = key
+	}
 	if config.SecretKey == "" {
-		log.Fatal("SECRET_KEY is required")
+		log.Fatal("SECRET_KEY is required (or set DATA_DIR to generate one)")
 	}
 
 	// Auth providers. Google defaults to on when its credentials are present

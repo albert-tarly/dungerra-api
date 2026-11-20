@@ -257,6 +257,11 @@ const ws = new WebSocket(
 ### Health Check
 
 - **Health Check**: `GET /health` - Server health status
+- **Version**: `GET /api/v1/version` - Game version, no authentication
+
+### Desktop mode
+
+The server can also run inside the desktop app for solo and LAN play. In that mode it keeps its data in `DATA_DIR`, generates its own secret key, and serves the web client from `STATIC_DIR`. See [Deployment: desktop mode](docs/development/deployment.md#desktop-mode-solo-and-lan) and the [design decision](docs/decisions/desktop-version.md).
 
 For details on binary protocol usage, see [Binary Protocol Documentation](docs/development/binary-protocol.md).
 

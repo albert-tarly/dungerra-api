@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,22 +18,24 @@ import (
 	"github.com/albert-tarly/dungerra-api/internal/db"
 	"github.com/albert-tarly/dungerra-api/internal/handlers"
 	"github.com/albert-tarly/dungerra-api/internal/server"
+	"github.com/albert-tarly/dungerra-api/internal/webapp"
 )
 
+// The listen flags override HOST, PORT, USE_TLS, TLS_CERT and TLS_KEY. Their
+// defaults are applied after .env is loaded (see resolveListenSettings), so
+// values from .env are honoured too.
 var (
-	host     = flag.String("host", getEnv("HOST", "localhost"), "Host to listen on")
-	port     = flag.String("port", getEnv("PORT", "8080"), "Port to listen on")
-	certFile = flag.String("cert", getEnv("TLS_CERT", ""), "TLS certificate file (required for HTTPS)")
-	keyFile  = flag.String("key", getEnv("TLS_KEY", ""), "TLS key file (required for HTTPS)")
-	useTLS   = flag.Bool("tls", getEnv("USE_TLS", "") == "true", "Enable TLS/HTTPS")
-)
+	host     = flag.String("host", "", `Host to listen on (env HOST, default "localhost")`)
+	port     = flag.String("port", "", `Port to listen on, 0 for any free port (env PORT, default "8080")`)
+	certFile = flag.String("cert", "", "TLS certificate file, required for HTTPS (env TLS_CERT)")
+	keyFile  = flag.String("key", "", "TLS key file, required for HTTPS (env TLS_KEY)")
+	useTLS   = flag.Bool("tls", false, "Enable TLS/HTTPS (env USE_TLS=true)")
 
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
+	// Desktop mode: see docs/decisions/desktop-version.md (sidecar contract)
+	readyLine            = flag.Bool("ready-line", false, "Print a DUNGERRA_READY line with the bound address to stdout once listening")
+	shutdownOnStdinClose = flag.Bool("shutdown-on-stdin-close", false, "Shut down gracefully when stdin is closed (for a parent process)")
+	noDotEnv             = flag.Bool("no-dotenv", false, "Do not read a .env file from the working directory")
+)
 
 // CORS middleware
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
@@ -62,7 +65,7 @@ func main() {
 	flag.Parse()
 
 	// Load configuration
-	cfg := config.LoadConfig()
+	cfg := config.LoadConfig(config.LoadOptions{SkipDotEnv: *noDotEnv})
 
 	// Open the configured storage backend (MongoDB or embedded SQLite)
 	if err := db.Open(db.Options{
@@ -128,6 +131,16 @@ func main() {
 	// Leaderboard endpoints
 	http.HandleFunc("/api/v1/leaderboard/global", corsMiddleware(leaderboardHandler.HandleGetGlobalLeaderboard))
 
+	// Version, probed by the desktop launcher before joining a LAN host
+	http.HandleFunc("/api/v1/version", corsMiddleware(handlers.HandleVersion))
+
+	// Web client, when this server also delivers it (desktop and LAN play).
+	// Registered at "/", so every route above takes precedence.
+	if cfg.StaticDir != "" {
+		http.Handle("/", webapp.NewSPAHandler(cfg.StaticDir))
+		log.Printf("Serving web client from %s", cfg.StaticDir)
+	}
+
 	// Health check
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -135,7 +148,10 @@ func main() {
 	})
 
 	// Prepare address
-	addr := fmt.Sprintf("%s:%s", *host, *port)
+	listen := resolveListenSettings(explicitFlags(), listenSettings{
+		Host: *host, Port: *port, CertFile: *certFile, KeyFile: *keyFile, UseTLS: *useTLS,
+	}, cfg)
+	addr := net.JoinHostPort(listen.Host, listen.Port)
 
 	// Create HTTP server with proper configuration
 	httpServer := &http.Server{
@@ -146,39 +162,59 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	// Bind before serving, so port 0 (any free port) can be reported
+	withTLS := listen.UseTLS || listen.CertFile != ""
+	if withTLS && (listen.CertFile == "" || listen.KeyFile == "") {
+		log.Fatal("TLS enabled but certificate or key file not provided. Use -cert and -key flags or TLS_CERT and TLS_KEY environment variables.")
+	}
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatalf("Cannot listen on %s: %v", addr, err)
+	}
+	boundAddr := listener.Addr().String()
+	_, boundPort, _ := net.SplitHostPort(boundAddr)
+
 	// Start HTTP/HTTPS server
 	go func() {
-		if *useTLS || *certFile != "" {
-			if *certFile == "" || *keyFile == "" {
-				log.Fatal("TLS enabled but certificate or key file not provided. Use -cert and -key flags or TLS_CERT and TLS_KEY environment variables.")
-			}
-			log.Printf("Starting game server with TLS on %s", addr)
-			if err := httpServer.ListenAndServeTLS(*certFile, *keyFile); err != nil && err != http.ErrServerClosed {
-				log.Fatal("ListenAndServeTLS error: ", err)
+		if withTLS {
+			log.Printf("Starting game server with TLS on %s", boundAddr)
+			if err := httpServer.ServeTLS(listener, listen.CertFile, listen.KeyFile); err != nil && err != http.ErrServerClosed {
+				log.Fatal("ServeTLS error: ", err)
 			}
 		} else {
-			log.Printf("Starting game server on %s", addr)
-			if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Fatal("ListenAndServe error: ", err)
+			log.Printf("Starting game server on %s", boundAddr)
+			if err := httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
+				log.Fatal("Serve error: ", err)
 			}
 		}
 	}()
 
 	log.Println("Server started successfully")
-	if *useTLS {
-		log.Printf("WebSocket (JSON): wss://your-domain:%s/ws", *port)
-		log.Printf("WebSocket (Binary): wss://your-domain:%s/ws?protocol=binary", *port)
+	if withTLS {
+		log.Printf("WebSocket (JSON): wss://your-domain:%s/ws", boundPort)
+		log.Printf("WebSocket (Binary): wss://your-domain:%s/ws?protocol=binary", boundPort)
 	} else {
-		log.Printf("WebSocket (JSON): ws://localhost:%s/ws", *port)
-		log.Printf("WebSocket (Binary): ws://localhost:%s/ws?protocol=binary", *port)
+		log.Printf("WebSocket (JSON): ws://localhost:%s/ws", boundPort)
+		log.Printf("WebSocket (Binary): ws://localhost:%s/ws?protocol=binary", boundPort)
+	}
+	if *readyLine {
+		// The listener is bound, so connections queue even before Serve runs
+		fmt.Fprint(os.Stdout, formatReadyLine(boundAddr))
 	}
 
-	// Wait for interrupt signal
+	// Wait for an interrupt signal or, for a parent process, stdin closing
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	<-sigChan
-
-	log.Println("Received shutdown signal, shutting down gracefully...")
+	var stdinClosed <-chan struct{} // nil blocks forever when not enabled
+	if *shutdownOnStdinClose {
+		stdinClosed = closedOnEOF(os.Stdin)
+	}
+	select {
+	case <-sigChan:
+		log.Println("Received shutdown signal, shutting down gracefully...")
+	case <-stdinClosed:
+		log.Println("Stdin closed by the parent process, shutting down gracefully...")
+	}
 
 	// Shutdown game server first (save sessions, close websockets)
 	gameServer.Shutdown()

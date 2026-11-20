@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wall chests: on Peaceful (25% of walls), and on Custom if enabled. Each holds 20–100 money, more the farther it is from the origin (up to ×3), plus rolled aid kits, goggles, ammo and a rare weapon.
 - Custom difficulty above 100% can put two guards on one wall (on opposite sides) and two towers in one chunk.
 - SQLite migration 2 adds `game_sessions.difficulty`. MongoDB stores it as an optional `difficulty` field.
+- Desktop mode, for running the server inside the desktop app (solo and LAN play). Everything is opt-in, and hosted deployments are unchanged:
+  - `DATA_DIR` holds the SQLite database and a secret key generated on first start.
+  - `STATIC_DIR` serves the built web client at `/`, with SPA fallback.
+  - `-port 0` binds any free port.
+  - `-ready-line` reports the bound address on stdout.
+  - `-shutdown-on-stdin-close` saves and stops when the parent app exits.
+  - `-no-dotenv` ignores a `.env` file in the working directory.
+- `GET /api/v1/version` returns the game version without authentication.
 
 ### Changed
 
@@ -21,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `HOST`, `PORT`, `USE_TLS`, `TLS_CERT` and `TLS_KEY` set in `.env` were ignored, because the flag defaults were read before `.env` was loaded. Only real environment variables worked. They now apply, and an explicit flag still overrides them.
 - Players who were dead or wearing goggles while in view were left out of the per-client view, so every delta re-sent them as added and never sent their updates. Respawns of players who died in view were never reported, and goggled players in torch light never moved. A player's view now holds exactly the players its deltas reported, and a player is removed once nobody able to see for the client sees them any more.
 - Every visible shop was resent in `updated_shops` on every delta, because its inventory was compared by item pointers against the view's clone. Shops are now sent only when their stock changes.
 - Player markers (`updated_other_player_positions`) for players out of sight were resent on every delta, and never removed when such a player put on goggles, died or left. The view now tracks the markers each client holds: they are sent when they change and removed once.

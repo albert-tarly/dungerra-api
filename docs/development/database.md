@@ -17,7 +17,7 @@ MONGODB_URL=mongodb+srv://...    # mongodb only
 
 If `DB_DRIVER` is not set, the server uses `mongodb` when `MONGODB_URL` is set and `sqlite` otherwise, so existing MongoDB deployments keep working without changes.
 
-`SQLITE_PATH` is relative to the working directory. For a desktop bundle, point it at the OS application-data directory instead.
+`SQLITE_PATH` is relative to the working directory. A desktop bundle sets `DATA_DIR` instead. When `SQLITE_PATH` is unset, the database is then `<DATA_DIR>/dungerra.db` (see [deployment.md](deployment.md#desktop-mode-solo-and-lan)).
 
 ## Architecture
 
