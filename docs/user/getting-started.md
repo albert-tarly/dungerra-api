@@ -72,7 +72,7 @@ When you enter a session for the first time:
 
 ## Leaving and coming back
 
-You leave a session by closing the game or disconnecting. Your character is then put "on hold":
+To leave a session, open the game menu (Escape) and choose **Leave Game**, which takes you back to the list of games. Closing the game or disconnecting also leaves. The game keeps running while the menu is open, so find a safe spot first. Your character is then put "on hold":
 
 - other players and enemies can't see or hit it,
 - your position, health, money, inventory and score are kept.
