@@ -770,26 +770,29 @@ func (e *Engine) buildPlayerView(playerID string) *EngineGameState {
 	playersAbleToSee := make(map[string]*types.Player)
 	playersAbleToSee[playerID] = player
 
-	shouldCheckOtherPlayers := player.NightVisionTimer <= 0
+	// Same rule as GetGameStateDeltaForPlayer: a player without goggles also
+	// sees what the detectable players they can see are seeing.
+	if player.NightVisionTimer <= 0 {
+		for id, p := range e.state.players {
+			if p.IsConnected && id != playerID && p.IsPositionDetectable() && p.IsVisibleToPlayer(player) {
+				playersAbleToSee[id] = p
+			}
+		}
+	}
 
-	// Save objects to previous state for delta computation
+	// Save objects to previous state for delta computation. The view must hold
+	// exactly the players the delta reported (added or updated): dead players
+	// and goggled ones lit by a torch included. Leaving them out made every
+	// delta re-add them and never send their updates, so a respawn or a move
+	// never reached the client.
 	prevState.players = make(map[string]*types.Player)
 	for id, p := range e.state.players {
 		if !p.IsConnected {
 			continue
 		}
-
-		isVisibleToPlayer := p.IsVisibleToPlayer(player)
-		isPositionDetectable := p.IsPositionDetectable()
-		if p.ID != playerID && (!isVisibleToPlayer || !isPositionDetectable) {
-			continue
+		if id == playerID || isPlayerVisibleToAny(p, playersAbleToSee) {
+			prevState.players[id] = p.Clone()
 		}
-
-		if shouldCheckOtherPlayers && isVisibleToPlayer && isPositionDetectable && p.ID != playerID {
-			playersAbleToSee[id] = p
-		}
-
-		prevState.players[id] = p.Clone()
 	}
 
 	prevState.shopsByChunk = make(map[string]map[string]*types.Shop)
@@ -2186,21 +2189,20 @@ func (e *Engine) GetGameStateDeltaForPlayer(playerID string) (*protocol.GameStat
 		}
 
 		prev, prevExists := prevState.players[id]
-		for _, playerAbleToSee := range playersAbleToSee {
-			if playerFromState.ID == playerID || playerFromState.IsVisibleToPlayer(playerAbleToSee) {
-				if !prevExists {
-					delta.AddedPlayers[id] = protocol.ToProtoPlayer(playerFromState)
-				} else {
-					updatedPlayer := protocol.ToProtoPlayerUpdate(prev, playerFromState, playerFromState.ID == playerID)
-					if updatedPlayer != nil {
-						delta.UpdatedPlayers[id] = updatedPlayer
-					}
+		if playerFromState.ID == playerID || isPlayerVisibleToAny(playerFromState, playersAbleToSee) {
+			if !prevExists {
+				delta.AddedPlayers[id] = protocol.ToProtoPlayer(playerFromState)
+			} else {
+				updatedPlayer := protocol.ToProtoPlayerUpdate(prev, playerFromState, playerFromState.ID == playerID)
+				if updatedPlayer != nil {
+					delta.UpdatedPlayers[id] = updatedPlayer
 				}
-				break
 			}
 		}
 
-		if playerFromState.ID != playerID && playerFromState.IsPositionDetectable() && (!prevExists || prev.Position.X != playerFromState.Position.X || prev.Position.Y != playerFromState.Position.Y) {
+		// A player known while undetectable (goggles on, or dead) has no
+		// marker yet, so taking the goggles off or respawning resends it.
+		if playerFromState.ID != playerID && playerFromState.IsPositionDetectable() && (!prevExists || !prev.IsPositionDetectable() || prev.Position.X != playerFromState.Position.X || prev.Position.Y != playerFromState.Position.Y) {
 			delta.UpdatedOtherPlayerPositions[id] = &protocol.Vector2{
 				X: playerFromState.Position.X,
 				Y: playerFromState.Position.Y,
@@ -2209,33 +2211,16 @@ func (e *Engine) GetGameStateDeltaForPlayer(playerID string) (*protocol.GameStat
 	}
 
 	// Check for removed players that were in visible chunks
+	// The view holds exactly the players the client knows, so any of them not
+	// visible any more is removed.
 	for id, prev := range prevState.players {
 		current, currentExists := e.state.players[id]
-		if !currentExists || !current.IsConnected {
+		if !currentExists || !current.IsConnected ||
+			(id != playerID && !isPlayerVisibleToAny(current, playersAbleToSee)) {
 			delta.RemovedPlayers = append(delta.RemovedPlayers, id)
-		} else {
-			isCurrentVisible := false
-			isPrevVisible := false
-			for _, playerAbleToSee := range playersAbleToSee {
-				if current.IsVisibleToPlayer(playerAbleToSee) {
-					isCurrentVisible = true
-				}
-
-				prevPlayerAbleToSee, existsInPrev := prevState.players[playerAbleToSee.ID]
-				if !existsInPrev {
-					continue
-				}
-				if prev.IsVisibleToPlayer(prevPlayerAbleToSee) {
-					isPrevVisible = true
-				}
-			}
-
-			if isPrevVisible && !isCurrentVisible {
-				delta.RemovedPlayers = append(delta.RemovedPlayers, id)
-			}
 		}
 
-		if id != playerID && (!currentExists || !current.IsPositionDetectable()) {
+		if id != playerID && prev.IsPositionDetectable() && (!currentExists || !current.IsPositionDetectable()) {
 			delta.RemovedOtherPlayerPositions = append(delta.RemovedOtherPlayerPositions, id)
 		}
 	}
@@ -2485,6 +2470,16 @@ func (e *Engine) enemiesHaveWall(enemyIDs []string, wallID string) bool {
 			if exists && enemy.WallID == wallID {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// isPlayerVisibleToAny reports whether any of the viewers can see the player.
+func isPlayerVisibleToAny(p *types.Player, viewers map[string]*types.Player) bool {
+	for _, viewer := range viewers {
+		if p.IsVisibleToPlayer(viewer) {
+			return true
 		}
 	}
 	return false

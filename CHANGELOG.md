@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** `POST /api/v1/sessions` requires `difficulty`. Session responses include the resolved `difficulty`.
 - Kill score is the base reward times the session's score multiplier (Peaceful ×0.25, Easy ×0.45, Hard ×1, Nightmare ×1.2). Kill money is scaled separately by `money_pct`, which also covers kills of other players.
 
+### Fixed
+
+- Players who were dead or wearing goggles while in view were left out of the per-client view, so every delta re-sent them as added and never sent their updates. Respawns of players who died in view were never reported, and goggled players in torch light never moved. A player's view now holds exactly the players its deltas reported, and a player is removed once nobody able to see for the client sees them any more.
+
 ## [2.0.0] - 2026-11-20
 
 ### Added

@@ -49,7 +49,7 @@ The game also shares the positions of all players who have a lit torch with ever
 Goggles change the rules for **20 seconds**:
 
 - You see everything within **1,500 units**: enemies, items, shops and bullets, even in the dark.
-- **Your torch goes out.** Other players can't see you and your position is no longer shared, so you are hidden from them.
+- **Your torch goes out.** Your position is no longer shared, and other players see you only when you step into the light of a torch, or when they wear goggles too (then within 1,500 units).
 - Enemies have to get much closer to notice you (see [Enemies](enemies.md#how-enemies-notice-you)).
 
 Each extra pair of goggles you use adds another 20 seconds.
