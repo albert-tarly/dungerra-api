@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Players who were dead or wearing goggles while in view were left out of the per-client view, so every delta re-sent them as added and never sent their updates. Respawns of players who died in view were never reported, and goggled players in torch light never moved. A player's view now holds exactly the players its deltas reported, and a player is removed once nobody able to see for the client sees them any more.
+- Every visible shop was resent in `updated_shops` on every delta, because its inventory was compared by item pointers against the view's clone. Shops are now sent only when their stock changes.
+- Player markers (`updated_other_player_positions`) for players out of sight were resent on every delta, and never removed when such a player put on goggles, died or left. The view now tracks the markers each client holds: they are sent when they change and removed once.
 
 ## [2.0.0] - 2026-11-20
 

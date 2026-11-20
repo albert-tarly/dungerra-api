@@ -291,7 +291,11 @@ func ToProtoShopUpdate(prev, curr *types.Shop) *ShopUpdate {
 		return nil
 	}
 
-	if maps.Equal(prev.Inventory, curr.Inventory) {
+	// Compare the items, not the pointers: prev is a clone, so its pointers
+	// never match and every visible shop would be resent on every tick.
+	if maps.EqualFunc(prev.Inventory, curr.Inventory, func(a, b *types.ShopInventoryItem) bool {
+		return *a == *b
+	}) {
 		return nil
 	}
 

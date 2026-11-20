@@ -147,3 +147,44 @@ func TestRespawnAfterUnseenDeathIsAdded(t *testing.T) {
 		t.Fatalf("respawned player not added alive: %+v", added)
 	}
 }
+
+func hasMarkerRemoval(delta *protocol.GameStateDeltaMessage, id string) bool {
+	for _, removed := range delta.RemovedOtherPlayerPositions {
+		if removed == id {
+			return true
+		}
+	}
+	return false
+}
+
+// Markers of players out of sight are sent when they change, not every tick,
+// and removed when the player puts goggles on or leaves.
+func TestFarPlayerMarkerFollowsDetectability(t *testing.T) {
+	e, observer, target := newTwoPlayerEngine(t, 5000)
+
+	if delta := syncView(e, observer.ID); delta.UpdatedOtherPlayerPositions[target.ID] != nil {
+		t.Fatal("unchanged far marker resent")
+	}
+	target.Position.X += 10
+	if delta := syncView(e, observer.ID); delta.UpdatedOtherPlayerPositions[target.ID] == nil {
+		t.Fatal("far player's move not sent as a marker")
+	}
+
+	target.NightVisionTimer = 20
+	if delta := syncView(e, observer.ID); !hasMarkerRemoval(delta, target.ID) {
+		t.Fatal("marker of a far player putting on goggles not removed")
+	}
+	if delta := syncView(e, observer.ID); hasMarkerRemoval(delta, target.ID) {
+		t.Fatal("marker removal repeated")
+	}
+
+	target.NightVisionTimer = 0
+	if delta := syncView(e, observer.ID); delta.UpdatedOtherPlayerPositions[target.ID] == nil {
+		t.Fatal("marker not resent after goggles wear off")
+	}
+
+	e.DisconnectPlayer(target.ID)
+	if delta := syncView(e, observer.ID); !hasMarkerRemoval(delta, target.ID) {
+		t.Fatal("marker of a disconnected player not removed")
+	}
+}

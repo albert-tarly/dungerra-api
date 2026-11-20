@@ -31,6 +31,10 @@ type EngineGameState struct {
 	bonuses        map[string]*types.Bonus
 	shopsByChunk   map[string]map[string]*types.Shop
 	rays           map[string]*types.Ray
+
+	// markers is only used in per-player views: the other players' positions
+	// the client holds for its markers (every detectable player, seen or not).
+	markers map[string]types.Vector2
 }
 
 type UpdateTimeStats struct {
@@ -792,6 +796,13 @@ func (e *Engine) buildPlayerView(playerID string) *EngineGameState {
 		}
 		if id == playerID || isPlayerVisibleToAny(p, playersAbleToSee) {
 			prevState.players[id] = p.Clone()
+		}
+	}
+
+	prevState.markers = make(map[string]types.Vector2)
+	for id, p := range e.state.players {
+		if id != playerID && p.IsPositionDetectable() {
+			prevState.markers[id] = *p.Position
 		}
 	}
 
@@ -2200,28 +2211,36 @@ func (e *Engine) GetGameStateDeltaForPlayer(playerID string) (*protocol.GameStat
 			}
 		}
 
-		// A player known while undetectable (goggles on, or dead) has no
-		// marker yet, so taking the goggles off or respawning resends it.
-		if playerFromState.ID != playerID && playerFromState.IsPositionDetectable() && (!prevExists || !prev.IsPositionDetectable() || prev.Position.X != playerFromState.Position.X || prev.Position.Y != playerFromState.Position.Y) {
-			delta.UpdatedOtherPlayerPositions[id] = &protocol.Vector2{
-				X: playerFromState.Position.X,
-				Y: playerFromState.Position.Y,
+		// Markers cover every detectable player, seen or not, so they are
+		// compared with the markers the client has, not with the seen players.
+		if playerFromState.ID != playerID && playerFromState.IsPositionDetectable() {
+			marker, hasMarker := prevState.markers[id]
+			if !hasMarker || marker != *playerFromState.Position {
+				delta.UpdatedOtherPlayerPositions[id] = &protocol.Vector2{
+					X: playerFromState.Position.X,
+					Y: playerFromState.Position.Y,
+				}
 			}
+		}
+	}
+
+	// A marker goes when its player leaves, puts goggles on or dies, whether or
+	// not the client can see them.
+	for id := range prevState.markers {
+		current, exists := e.state.players[id]
+		if !exists || !current.IsPositionDetectable() {
+			delta.RemovedOtherPlayerPositions = append(delta.RemovedOtherPlayerPositions, id)
 		}
 	}
 
 	// Check for removed players that were in visible chunks
 	// The view holds exactly the players the client knows, so any of them not
 	// visible any more is removed.
-	for id, prev := range prevState.players {
+	for id := range prevState.players {
 		current, currentExists := e.state.players[id]
 		if !currentExists || !current.IsConnected ||
 			(id != playerID && !isPlayerVisibleToAny(current, playersAbleToSee)) {
 			delta.RemovedPlayers = append(delta.RemovedPlayers, id)
-		}
-
-		if id != playerID && prev.IsPositionDetectable() && (!currentExists || !current.IsPositionDetectable()) {
-			delta.RemovedOtherPlayerPositions = append(delta.RemovedOtherPlayerPositions, id)
 		}
 	}
 

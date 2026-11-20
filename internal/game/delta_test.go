@@ -75,8 +75,8 @@ func TestDeltaDoesNotConsumeCommittedView(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		delta, _ := e.GetGameStateDeltaForPlayer(player.ID)
-		if len(delta.RemovedShops) != 0 || len(delta.RemovedWalls) != 0 || len(delta.RemovedEnemies) != 0 {
-			t.Fatalf("pass %d reports removals for an unchanged world: %+v", i, delta)
+		if len(delta.RemovedShops) != 0 || len(delta.UpdatedShops) != 0 || len(delta.RemovedWalls) != 0 || len(delta.RemovedEnemies) != 0 {
+			t.Fatalf("pass %d reports changes for an unchanged world: %+v", i, delta)
 		}
 	}
 
