@@ -100,7 +100,7 @@ dungerra-api/
 ## Prerequisites
 
 - Go 1.24 or higher
-- Node.js + `protoc` — only to regenerate protobuf code (`npm run proto:generate`)
+- Node.js 26 (see `.nvmrc`) + `protoc` — only to regenerate protobuf code (`npm run proto:generate`)
 - MongoDB (Atlas or local instance) — only when `DB_DRIVER=mongodb`; otherwise the server uses an embedded SQLite file and needs no database setup
 - Google OAuth credentials ([Get them here](https://console.cloud.google.com/)) — only when `GOOGLE_AUTH_ENABLED=true`; local username/password accounts need no external setup
 - Git (for dependency management)
