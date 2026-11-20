@@ -19,9 +19,9 @@ The server runs the game at 30 updates per second and makes all the decisions ab
 
 ## Health
 
-- You have **6 lives** (hit points). Most hits take 1 life. Rockets and some weapons take more, and shotgun pellets take a fraction of a life.
+- You have **6 lives** (hit points): 8 on Easy, and whatever the host set on Custom. Most hits take 1 life. Rockets and some weapons take more, and shotgun pellets take a fraction of a life.
 - After you take a hit and survive, you are **invulnerable for 1 second**. Nothing can hurt you during that time, not even explosions.
-- Use an **aid kit** to get back 1 life, up to the maximum of 6. Aid kits you pick up while hurt are used at once. See [Items, Loot and Shops](items-and-shops.md).
+- Use an **aid kit** to get back 1 life, up to your maximum. Aid kits you pick up while hurt are used at once. See [Items, Loot and Shops](items-and-shops.md).
 
 ## Light and vision
 
@@ -73,7 +73,7 @@ Enemies are only active while a player is within 1,500 units of them. **Killed e
 
 ## Player vs player
 
-All players in a session can damage each other with any weapon. Killing another player earns you **100 money** and a kill, and they drop a chest with part of their belongings (see [Dying](#dying)).
+All players in a session can damage each other with any weapon. Killing another player earns you **100 money** (200 on Peaceful and Easy; see [Difficulty](getting-started.md#difficulty)) and a kill, and they drop a chest with part of their belongings (see [Dying](#dying)).
 
 ## Dying
 

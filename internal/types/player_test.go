@@ -56,3 +56,19 @@ func TestPickupBonusAppliesAidKitsWhenHurt(t *testing.T) {
 		})
 	}
 }
+
+// A difficulty with more lives raises both the respawn lives and the cap
+// aid kits heal up to.
+func TestMaxLivesFromDifficulty(t *testing.T) {
+	p := &Player{Lives: 6, MaxLives: 8}
+	p.PickupBonus(aidKitBonus(3))
+	if p.Lives != 8 || p.GetInventoryItemQuantity(InventoryItemAidKit) != 1 {
+		t.Fatalf("lives %v, stored kits %d; want 8 and 1", p.Lives, p.GetInventoryItemQuantity(InventoryItemAidKit))
+	}
+
+	p.Die()
+	p.Respawn(&Vector2{})
+	if p.Lives != 8 {
+		t.Fatalf("respawned with %v lives, want 8", p.Lives)
+	}
+}

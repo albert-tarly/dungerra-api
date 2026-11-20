@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/albert-tarly/dungerra-api/internal/auth"
+	"github.com/albert-tarly/dungerra-api/internal/config"
 	"github.com/albert-tarly/dungerra-api/internal/db"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -31,6 +32,8 @@ type CreateSessionRequest struct {
 	MaxPlayers int    `json:"max_players"`
 	IsPrivate  bool   `json:"is_private"`
 	Password   string `json:"password,omitempty"`
+	// Difficulty is required: a preset name, or "custom" with every value set.
+	Difficulty *config.Difficulty `json:"difficulty"`
 }
 
 // SessionResponse represents a game session response
@@ -47,6 +50,7 @@ type SessionResponse struct {
 	Players       map[string]db.PlayerState `json:"players"`
 	CreatedAt     string                    `json:"created_at"`
 	IsActive      bool                      `json:"is_active"`
+	Difficulty    config.Difficulty         `json:"difficulty"`
 }
 
 // UserResponse represents a user in responses
@@ -106,6 +110,16 @@ func (h *SessionHandler) HandleCreateSession(w http.ResponseWriter, r *http.Requ
 		req.MaxPlayers = 10
 	}
 
+	if req.Difficulty == nil {
+		http.Error(w, "Difficulty is required", http.StatusBadRequest)
+		return
+	}
+	difficulty, err := config.ResolveDifficulty(*req.Difficulty)
+	if err != nil {
+		http.Error(w, "Invalid difficulty: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	ctx := context.Background()
 	session := &db.GameSession{
 		Name:       req.Name,
@@ -114,6 +128,7 @@ func (h *SessionHandler) HandleCreateSession(w http.ResponseWriter, r *http.Requ
 		IsPrivate:  req.IsPrivate,
 		Password:   req.Password,
 		Players:    map[string]db.PlayerState{},
+		Difficulty: &difficulty,
 	}
 
 	if err := h.sessionRepo.Create(ctx, session); err != nil {
@@ -288,5 +303,6 @@ func (h *SessionHandler) sessionToResponse(session *db.GameSession, host *db.Use
 		Players:       session.Players,
 		CreatedAt:     session.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		IsActive:      session.IsActive,
+		Difficulty:    session.EffectiveDifficulty(),
 	}
 }

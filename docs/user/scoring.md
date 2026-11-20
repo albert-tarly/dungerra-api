@@ -12,9 +12,12 @@ Your **score** is the total reward you have earned from kills during your curren
 | Tower | +200 |
 | Another player | +100 |
 
+These are the Hard values. The session's [difficulty](getting-started.md#difficulty) multiplies them, rounded to a whole number: ×0.25 on Peaceful, ×0.45 on Easy, ×1.2 on Nightmare, and between ×0.25 and ×2 on Custom, depending on how dangerous its settings are. A tower on Easy is worth 90 score, for example.
+
 Score and money go up together when you make a kill, but they are separate:
 
 - **Spending money doesn't lower your score.**
+- The difficulty's money rate doesn't change your score. Double money on Easy doesn't mean double score.
 - Money you take from other players' chests **doesn't add to your score**.
 
 Each kill also adds 1 to your **kill count**.

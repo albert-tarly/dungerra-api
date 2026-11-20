@@ -144,7 +144,8 @@ Content-Type: application/json
   "health": 5,
   "max_players": 4,
   "is_private": false,
-  "password": "optional_password"
+  "password": "optional_password",
+  "difficulty": { "preset": "easy" }
 }
 ```
 
@@ -157,6 +158,22 @@ Creates a new game session. The authenticated user becomes the host.
 - `max_players` (int, optional): Maximum number of players (default: 4)
 - `is_private` (bool, optional): Whether the session requires a password
 - `password` (string, optional): Password for private sessions
+- `difficulty` (object, **required**): `{"preset": "peaceful" | "easy" | "hard" | "nightmare"}`, or `{"preset": "custom", ...}` with every value below set. A named preset ignores any other values sent with it. A missing or invalid difficulty returns `400`.
+
+**Difficulty values** (the percentages are relative to Hard, where 100 means the same as Hard):
+
+| Field | Range | Meaning |
+| --- | --- | --- |
+| `soldiers_pct`, `lieutenants_pct`, `snipers_pct` | 0–200 | Expected guards of that type per wall |
+| `towers_pct` | 0–200 | Towers per chunk (100 = one) |
+| `money_pct` | 0–300 | Money per kill, enemies and players |
+| `drop_chance_pct` | 0–300 | Soldier and lieutenant drop chance |
+| `wall_chest_pct` | 0–100 | Chance that each wall gets a loot chest |
+| `enemy_fire_rate_pct` | 25–200 | Enemy shots per second |
+| `player_lives` | 1–12 | Lives at spawn and the cap that aid kits heal up to |
+| `score_multiplier` | output only | Derived by the server from the values above; any value the client sends is ignored |
+
+The server stores the resolved values, so changing a preset later doesn't affect existing sessions. Sessions created before difficulties existed report the Hard values.
 
 **Response:** `201 Created`
 
@@ -191,7 +208,20 @@ Creates a new game session. The authenticated user becomes the host.
     }
   },
   "created_at": "2024-01-01T00:00:00Z",
-  "is_active": true
+  "is_active": true,
+  "difficulty": {
+    "preset": "easy",
+    "soldiers_pct": 50,
+    "lieutenants_pct": 50,
+    "snipers_pct": 0,
+    "towers_pct": 0,
+    "money_pct": 200,
+    "drop_chance_pct": 200,
+    "wall_chest_pct": 0,
+    "enemy_fire_rate_pct": 75,
+    "player_lives": 8,
+    "score_multiplier": 0.45
+  }
 }
 ```
 
@@ -219,7 +249,8 @@ Returns a list of all active game sessions.
     "game_state": {...},
     "players": {...},
     "created_at": "2024-01-01T00:00:00Z",
-    "is_active": true
+    "is_active": true,
+    "difficulty": {...}
   }
 ]
 ```

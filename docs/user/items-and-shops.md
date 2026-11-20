@@ -36,7 +36,7 @@ There are three kinds of item on the ground:
 | --- | --- | --- |
 | **Aid kit** | Dropped by soldiers and lieutenants | 1 aid kit |
 | **Goggles** | Dropped by soldiers and lieutenants | 1 pair of goggles |
-| **Chest** | Left by lieutenants, snipers, destroyed towers and dead players | A mix of items and/or money |
+| **Chest** | Left by lieutenants, snipers, destroyed towers and dead players, or found next to walls (Peaceful and some Custom sessions) | A mix of items and/or money |
 
 You only see items on the ground when they are in light (see [Light and vision](playing.md#light-and-vision)).
 
@@ -61,6 +61,18 @@ A destroyed tower always leaves a chest. Each type of content is rolled separate
 
 Tower chests are the best free source of ammo in the game.
 
+### Wall chests
+
+On **Peaceful**, a quarter of all walls have a loot chest next to them when an area is first generated. Custom sessions can set this anywhere from 0% to 100% of walls. Wall chests stay until someone takes them. Each one holds:
+
+| Content | Chance | Amount |
+| --- | --- | --- |
+| Money | Always | 20–100, more the farther the chest is from the world's starting area: double at 10,000 units, up to triple at 20,000 |
+| Aid kits | 40% | 1–2 |
+| Goggles | 15% | 1 |
+| Shotgun shells, rockets or railgun slugs (one kind) | 30% | 5–15 |
+| A shotgun, rocket launcher or railgun | 5% | 1 |
+
 ### Player chests
 
 A player who dies drops a chest holding a random ⅓ to all of their money and of each item they carried, including weapons. Anyone can take it. It disappears after **5 minutes**. See [Dying](playing.md#dying).
@@ -77,7 +89,9 @@ You earn money by killing:
 | Tower | 200 |
 | Another player | 100 |
 
-You also gain money from the coins in other players' chests. You lose all your money when you die, so spend it.
+These amounts are for Hard. Peaceful and Easy pay double, Nightmare pays 1.5×, and Custom sessions set their own rate (see [Difficulty](getting-started.md#difficulty)).
+
+You also gain money from the coins in other players' chests and in wall chests. You lose all your money when you die, so spend it.
 
 ## Shops
 

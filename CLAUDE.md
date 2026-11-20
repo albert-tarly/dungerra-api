@@ -51,6 +51,6 @@ Dev machine is Windows: the shell may be PowerShell or Git Bash. Use the syntax 
 - **Add a test when fixing a bug** whenever the logic is reachable without a live socket (math in `internal/utils`, storage contract, session round-trips, auth handlers via `httptest`).
 - **Gameplay/balance changes:** state the before → after values and the player-visible effect in the summary, and update `docs/user/` (rule 4). Consider whether `CHANGELOG.md` needs an entry (Keep a Changelog format, semver). Ask the user if unsure.
 - **Ask before** changing the wire protocol, DB schema, auth flow, or anything that breaks existing clients or saved worlds. Those are hard to reverse.
-- **Git:** work on a feature branch, never commit to `main` directly, and commit or push only when asked. Commit messages are short and imperative; the history mixes plain and `feat(scope):` styles, so either is fine.
+- **Git:** committing directly to `main` is fine, but commit or push only when asked. Commit messages are short and imperative; the history mixes plain and `feat(scope):` styles, so either is fine.
 - **Docs:** user docs are written for players (actions, not keys; plain numbers in game units/seconds). Developer docs go in `docs/development/`. Don't create new markdown files unless asked.
 - **When uncertain about intent** (e.g. is a number a bug or a design choice?), check git log/blame and `docs/user/` first, then ask instead of guessing.

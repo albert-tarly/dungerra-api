@@ -26,6 +26,8 @@ func (e *Engine) LoadFromSession(session *db.GameSession) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	e.difficulty = session.EffectiveDifficulty()
+
 	// Load walls from shared objects
 	for id, obj := range session.SharedObjects {
 		if obj.Type == "wall" {
@@ -227,6 +229,7 @@ func (e *Engine) LoadFromSession(session *db.GameSession) {
 			Username:                playerState.Name,
 			Rotation:                playerState.Position.Rotation,
 			Lives:                   playerState.Lives,
+			MaxLives:                float32(e.difficulty.PlayerLives),
 			Score:                   playerState.Score,
 			Money:                   playerState.Money,
 			BulletsLeftByWeaponType: playerState.BulletsLeftByWeaponType,
@@ -400,6 +403,8 @@ func (e *Engine) SaveToSession(session *db.GameSession) {
 	}
 
 	session.GameVersion = config.GameVersion
+	difficulty := e.difficulty
+	session.Difficulty = &difficulty
 }
 
 // toInt64 converts a numeric value decoded from BSON/JSON (int32, int64, float64, ...) to int64

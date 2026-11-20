@@ -298,4 +298,20 @@ const (
 	TowerGogglesProbability = 0.2
 	TowerGogglesMinQuantity = 1
 	TowerGogglesMaxQuantity = 2
+
+	// Wall chest constants (loot generated next to walls; how many walls get
+	// one is the session difficulty's WallChestPct)
+	WallChestMoneyMin           = 20
+	WallChestMoneyMax           = 100
+	WallChestMoneyDistanceScale = 10000.0 // Units from the world origin per +100% money
+	WallChestMoneyMaxMultiplier = 3.0     // Distance bonus cap (x3 at 20000 units)
+	WallChestAidKitProbability  = 0.4
+	WallChestAidKitMinQuantity  = 1
+	WallChestAidKitMaxQuantity  = 2
+	WallChestGogglesProbability = 0.15
+	WallChestAmmoProbability    = 0.3 // One random ammo type
+	WallChestAmmoMinQuantity    = 5
+	WallChestAmmoMaxQuantity    = 15
+	WallChestWeaponProbability  = 0.05 // One random non-blaster weapon
+	WallChestGap                = 4.0  // Gap between the wall face and the chest edge
 )

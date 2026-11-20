@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/albert-tarly/dungerra-api/internal/config"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	// Pure-Go SQLite driver: no CGO required, so the server cross-compiles
@@ -73,6 +74,8 @@ var sqliteMigrations = []string{
 	CREATE INDEX idx_leaderboard_session_score ON leaderboard(session_id, score DESC);
 	CREATE INDEX idx_leaderboard_user_updated  ON leaderboard(user_id, updated_at DESC);
 	`,
+	// 2: per-session difficulty (JSON; '' = created before difficulties, plays as Hard)
+	`ALTER TABLE game_sessions ADD COLUMN difficulty TEXT NOT NULL DEFAULT '';`,
 }
 
 type sqliteStore struct {
@@ -288,7 +291,7 @@ type sqliteGameSessionRepository struct {
 }
 
 const sessionColumns = `id, name, host_id, max_players, is_private, password, is_active, game_version,
-	created_at, last_updated, players, world_map, shared_objects`
+	created_at, last_updated, players, world_map, shared_objects, difficulty`
 
 func scanSession(row rowScanner) (*GameSession, error) {
 	var (
@@ -296,9 +299,10 @@ func scanSession(row rowScanner) (*GameSession, error) {
 		id, hostID                       string
 		createdAt, lastUpdated           int64
 		players, worldMap, sharedObjects []byte
+		difficulty                       string
 	)
 	if err := row.Scan(&id, &s.Name, &hostID, &s.MaxPlayers, &s.IsPrivate, &s.Password, &s.IsActive,
-		&s.GameVersion, &createdAt, &lastUpdated, &players, &worldMap, &sharedObjects); err != nil {
+		&s.GameVersion, &createdAt, &lastUpdated, &players, &worldMap, &sharedObjects, &difficulty); err != nil {
 		return nil, err
 	}
 
@@ -321,6 +325,12 @@ func scanSession(row rowScanner) (*GameSession, error) {
 	if err := json.Unmarshal(sharedObjects, &s.SharedObjects); err != nil {
 		return nil, fmt.Errorf("db: decode session shared objects: %w", err)
 	}
+	if difficulty != "" {
+		s.Difficulty = &config.Difficulty{}
+		if err := json.Unmarshal([]byte(difficulty), s.Difficulty); err != nil {
+			return nil, fmt.Errorf("db: decode session difficulty: %w", err)
+		}
+	}
 	return &s, nil
 }
 
@@ -338,10 +348,19 @@ func sessionArgs(s *GameSession) ([]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	// "" (not "null") marks a session without a difficulty, matching the column default.
+	difficulty := ""
+	if s.Difficulty != nil {
+		raw, err := json.Marshal(s.Difficulty)
+		if err != nil {
+			return nil, err
+		}
+		difficulty = string(raw)
+	}
 	return []any{
 		s.ID.Hex(), s.Name, s.HostID.Hex(), s.MaxPlayers, s.IsPrivate, s.Password, s.IsActive,
 		s.GameVersion, toMillis(s.CreatedAt), toMillis(s.LastUpdated),
-		string(players), string(worldMap), string(sharedObjects),
+		string(players), string(worldMap), string(sharedObjects), difficulty,
 	}, nil
 }
 
@@ -360,7 +379,7 @@ func (r *sqliteGameSessionRepository) Create(ctx context.Context, session *GameS
 		return err
 	}
 	_, err = r.db.ExecContext(ctx,
-		`INSERT INTO game_sessions (`+sessionColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO game_sessions (`+sessionColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		args...)
 	return err
 }
@@ -376,7 +395,8 @@ func (r *sqliteGameSessionRepository) Update(ctx context.Context, session *GameS
 	_, err = r.db.ExecContext(ctx,
 		`UPDATE game_sessions
 		    SET name = ?, host_id = ?, max_players = ?, is_private = ?, password = ?, is_active = ?,
-		        game_version = ?, created_at = ?, last_updated = ?, players = ?, world_map = ?, shared_objects = ?
+		        game_version = ?, created_at = ?, last_updated = ?, players = ?, world_map = ?, shared_objects = ?,
+		        difficulty = ?
 		  WHERE id = ?`,
 		args...)
 	return err

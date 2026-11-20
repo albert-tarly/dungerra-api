@@ -3,6 +3,7 @@ package db
 import (
 	"time"
 
+	"github.com/albert-tarly/dungerra-api/internal/config"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -111,6 +112,17 @@ type GameSession struct {
 	LastUpdated   time.Time              `bson:"last_updated" json:"last_updated"`
 	IsActive      bool                   `bson:"is_active" json:"is_active"`
 	GameVersion   string                 `bson:"game_version" json:"game_version"`
+	// Difficulty is nil for sessions created before difficulties existed;
+	// those play as Hard (see EffectiveDifficulty).
+	Difficulty *config.Difficulty `bson:"difficulty,omitempty" json:"difficulty,omitempty"`
+}
+
+// EffectiveDifficulty is the difficulty the session plays at.
+func (s *GameSession) EffectiveDifficulty() config.Difficulty {
+	if s.Difficulty == nil {
+		return config.HardDifficulty()
+	}
+	return *s.Difficulty
 }
 
 // LeaderboardEntry is a user's best result within a session.

@@ -18,6 +18,7 @@ Destroy enemies to earn money, spend it on better weapons, and try to stay alive
 
 ## Game at a glance
 
+- **Difficulty.** Each session is Peaceful, Easy, Hard, Nightmare or Custom. It sets how many enemies there are, how generous the loot is and how much each kill scores.
 - **Multiplayer sessions.** Each session is its own persistent world. Its default limit is 10 players at once, and the host can set a different one. Sessions can be public or protected by a password.
 - **Endless world.** New areas are generated as players explore, and the world is saved, so you can come back to it later.
 - **Darkness.** You see enemies, items and bullets only inside a light source. Walls are always visible within your sight range.

@@ -83,6 +83,10 @@ type Engine struct {
 
 	stats     *EngineStats
 	debugMode bool
+
+	// difficulty is fixed for the session's lifetime: it is set from the DB
+	// session by LoadFromSession before any player connects.
+	difficulty config.Difficulty
 }
 
 // NewEngine creates a new game engine for a session
@@ -108,7 +112,8 @@ func NewEngine(sessionID string) *Engine {
 		stats: &EngineStats{
 			Frequency: time.Second * 1,
 		},
-		debugMode: config.AppConfig.EngineDebugMode,
+		debugMode:  config.AppConfig.EngineDebugMode,
+		difficulty: config.HardDifficulty(),
 	}
 }
 
@@ -147,7 +152,8 @@ func (e *Engine) ConnectPlayer(id, username string) *types.Player {
 			},
 
 			Username: username,
-			Lives:    config.PlayerLives,
+			Lives:    float32(e.difficulty.PlayerLives),
+			MaxLives: float32(e.difficulty.PlayerLives),
 			BulletsLeftByWeaponType: map[string]int32{
 				types.WeaponTypeBlaster: config.BlasterMaxBullets,
 			},
@@ -226,22 +232,42 @@ func (e *Engine) generateChunk(chunkX, chunkY int, playerPos *types.Vector2) {
 
 	e.state.shopsByChunk[chunkKey][shop.ID] = shop
 
-	// Create enemy tower
+	// Create enemy towers. Hard has exactly one per chunk; other difficulties
+	// scale that, with the fractional part rolled as a chance of one more.
 	towerRadius := config.EnemyTowerSize / 2
-	towerPosition := &types.Vector2{
-		X: chunkStartX + towerRadius + rand.Float64()*(config.ChunkSize-towerRadius*2),
-		Y: chunkStartY + towerRadius + rand.Float64()*(config.ChunkSize-towerRadius*2),
-	}
-	towerID := uuid.New().String()
-	e.state.enemiesByChunk[chunkKey][towerID] = &types.Enemy{
-		ScreenObject: types.ScreenObject{
-			ID:       towerID,
-			Position: towerPosition,
-		},
-		Lives:      float32(config.EnemyTowerLives),
-		Type:       types.EnemyTypeTower,
-		ShootDelay: config.EnemyTowerShootDelay,
-		IsAlive:    true,
+	safeWallPadding := config.EnemySoldierSize
+	towerPositions := make([]*types.Vector2, 0, 2)
+	for range scaledCount(1, e.difficulty.TowersPct) {
+		var towerPosition *types.Vector2
+		for attempt := 0; attempt < maxTowerPlacementAttempts && towerPosition == nil; attempt++ {
+			candidate := &types.Vector2{
+				X: chunkStartX + towerRadius + rand.Float64()*(config.ChunkSize-towerRadius*2),
+				Y: chunkStartY + towerRadius + rand.Float64()*(config.ChunkSize-towerRadius*2),
+			}
+			towerPosition = candidate
+			for _, other := range towerPositions {
+				if math.Hypot(candidate.X-other.X, candidate.Y-other.Y) < 2*(towerRadius+safeWallPadding) {
+					towerPosition = nil
+					break
+				}
+			}
+		}
+		if towerPosition == nil {
+			continue // Chunk too crowded with towers; skip this one
+		}
+		towerPositions = append(towerPositions, towerPosition)
+
+		towerID := uuid.New().String()
+		e.state.enemiesByChunk[chunkKey][towerID] = &types.Enemy{
+			ScreenObject: types.ScreenObject{
+				ID:       towerID,
+				Position: towerPosition,
+			},
+			Lives:      float32(config.EnemyTowerLives),
+			Type:       types.EnemyTypeTower,
+			ShootDelay: e.enemyShootDelay(config.EnemyTowerShootDelay),
+			IsAlive:    true,
+		}
 	}
 
 	for numWalls > 0 {
@@ -281,21 +307,26 @@ func (e *Engine) generateChunk(chunkX, chunkY int, playerPos *types.Vector2) {
 			Orientation: orientation,
 		}
 		wallTopLeft := wall.GetTopLeft()
-		safeWallPadding := config.EnemySoldierSize
 
-		if utils.CheckRectCollision(
-			towerPosition.X-towerRadius-safeWallPadding,
-			towerPosition.Y-towerRadius-safeWallPadding,
-			towerRadius*2+2*safeWallPadding,
-			towerRadius*2+2*safeWallPadding,
-			wallTopLeft.X, wallTopLeft.Y,
-			width, height,
-		) {
+		overlaps := false
+		for _, towerPosition := range towerPositions {
+			if utils.CheckRectCollision(
+				towerPosition.X-towerRadius-safeWallPadding,
+				towerPosition.Y-towerRadius-safeWallPadding,
+				towerRadius*2+2*safeWallPadding,
+				towerRadius*2+2*safeWallPadding,
+				wallTopLeft.X, wallTopLeft.Y,
+				width, height,
+			) {
+				overlaps = true
+				break
+			}
+		}
+		if overlaps {
 			continue
 		}
 
 		// Check overlap with existing walls
-		overlaps := false
 		for _, wall := range e.state.wallsByChunk[chunkKey] {
 			checkedTopLeft := wall.GetTopLeft()
 
@@ -318,12 +349,180 @@ func (e *Engine) generateChunk(chunkX, chunkY int, playerPos *types.Vector2) {
 		numWalls--
 		e.state.wallsByChunk[chunkKey][wallID] = wall
 
-		// Create enemy for this wall
-		if rand.Float64() < config.EnemySpawnChancePerWall {
-			enemy := e.createEnemyForWall(wall)
+		// Create enemies for this wall. A second one, when the difficulty asks
+		// for more than one per wall, guards the opposite side.
+		side := 1.0
+		if rand.Float64() < 0.5 {
+			side = -1.0
+		}
+		for _, enemyType := range e.rollWallEnemyTypes() {
+			enemy := e.createEnemyForWall(wall, enemyType, side)
 			e.state.enemiesByChunk[chunkKey][enemy.ID] = enemy
+			side = -side
 		}
 	}
+
+	e.generateWallChests(chunkKey, towerPositions)
+}
+
+// maxTowerPlacementAttempts bounds the search for a free spot for each extra
+// tower in a chunk.
+const maxTowerPlacementAttempts = 10
+
+// scaledCount scales a Hard count by a difficulty percentage. The fractional
+// part becomes the chance of one more, so the expected count is exact.
+func scaledCount(hardCount float64, pct int) int {
+	expected := hardCount * float64(pct) / 100
+	count := int(expected)
+	if rand.Float64() < expected-float64(count) {
+		count++
+	}
+	return count
+}
+
+// rollWallEnemyTypes picks the enemies guarding one wall. On Hard this is the
+// original roll: a 90% chance of an enemy, which is a sniper 5% of the time,
+// else a lieutenant 15% of the time, else a soldier. Difficulty percentages
+// scale each type's expected count per wall. While the total stays at or
+// below one, a single categorical roll keeps Hard's distribution exact; above
+// one, the extra share becomes the chance of a second enemy.
+func (e *Engine) rollWallEnemyTypes() []string {
+	hardSniper := config.EnemySpawnChancePerWall * config.EnemySniperChance
+	hardLieutenant := config.EnemySpawnChancePerWall * (1 - config.EnemySniperChance) * config.EnemyLieutenantChance
+	hardSoldier := config.EnemySpawnChancePerWall * (1 - config.EnemySniperChance) * (1 - config.EnemyLieutenantChance)
+
+	sniper := hardSniper * float64(e.difficulty.SnipersPct) / 100
+	lieutenant := hardLieutenant * float64(e.difficulty.LieutenantsPct) / 100
+	soldier := hardSoldier * float64(e.difficulty.SoldiersPct) / 100
+	total := sniper + lieutenant + soldier
+	if total <= 0 {
+		return nil
+	}
+
+	count := 1
+	if total > 1 {
+		count = scaledCount(total, 100)
+	} else if rand.Float64() >= total {
+		return nil
+	}
+
+	enemyTypes := make([]string, 0, count)
+	for range count {
+		r := rand.Float64() * total
+		switch {
+		case r < sniper:
+			enemyTypes = append(enemyTypes, types.EnemyTypeSniper)
+		case r < sniper+lieutenant:
+			enemyTypes = append(enemyTypes, types.EnemyTypeLieutenant)
+		default:
+			enemyTypes = append(enemyTypes, types.EnemyTypeSoldier)
+		}
+	}
+	return enemyTypes
+}
+
+// enemyShootDelay scales a Hard shoot delay by the difficulty's fire rate.
+func (e *Engine) enemyShootDelay(hardDelay float64) float64 {
+	return hardDelay * 100 / float64(e.difficulty.EnemyFireRatePct)
+}
+
+// generateWallChests places loot chests beside a share of a freshly generated
+// chunk's walls. They have no DroppedBy, so they never expire and are saved
+// with the world like any other bonus.
+func (e *Engine) generateWallChests(chunkKey string, towerPositions []*types.Vector2) {
+	if e.difficulty.WallChestPct <= 0 {
+		return
+	}
+	chestRadius := config.ChestSize / 2
+	towerRadius := config.EnemyTowerSize / 2
+	walls := e.state.wallsByChunk[chunkKey]
+
+	for _, wall := range walls {
+		if rand.Float64()*100 >= float64(e.difficulty.WallChestPct) {
+			continue
+		}
+
+		// A random spot along the wall, on a random side. Not the midpoint,
+		// which is where guards stand.
+		side := 1.0
+		if rand.Float64() < 0.5 {
+			side = -1.0
+		}
+		along := rand.Float64() - 0.5
+		offset := config.WallWidth/2 + config.WallChestGap + chestRadius
+		position := wall.GetCenter()
+		if wall.Orientation == "vertical" {
+			position.X += side * offset
+			position.Y += along * (wall.Height - config.ChestSize)
+		} else {
+			position.X += along * (wall.Width - config.ChestSize)
+			position.Y += side * offset
+		}
+
+		blocked := false
+		for _, other := range walls {
+			topLeft := other.GetTopLeft()
+			if utils.CheckRectCollision(
+				position.X-chestRadius, position.Y-chestRadius, config.ChestSize, config.ChestSize,
+				topLeft.X, topLeft.Y, other.Width, other.Height,
+			) {
+				blocked = true
+				break
+			}
+		}
+		for _, towerPosition := range towerPositions {
+			if math.Hypot(position.X-towerPosition.X, position.Y-towerPosition.Y) < towerRadius+chestRadius {
+				blocked = true
+				break
+			}
+		}
+		if blocked {
+			continue
+		}
+
+		bonus := &types.Bonus{
+			ScreenObject: types.ScreenObject{
+				ID:       uuid.New().String(),
+				Position: position,
+			},
+			Type:      types.BonusTypeChest,
+			Inventory: rollWallChestInventory(position),
+		}
+		e.state.bonuses[bonus.ID] = bonus
+	}
+}
+
+// rollWallChestInventory always includes money, more of it the further the
+// chest is from the world origin so exploring pays off, plus a few rolled
+// supplies.
+func rollWallChestInventory(position *types.Vector2) []types.InventoryItem {
+	distance := math.Hypot(position.X, position.Y)
+	moneyMultiplier := math.Min(1+distance/config.WallChestMoneyDistanceScale, config.WallChestMoneyMaxMultiplier)
+	money := float64(config.WallChestMoneyMin+rand.Intn(config.WallChestMoneyMax-config.WallChestMoneyMin+1)) * moneyMultiplier
+
+	inventory := []types.InventoryItem{{Type: types.InventoryItemMoney, Quantity: int32(math.Round(money))}}
+
+	if rand.Float64() < config.WallChestAidKitProbability {
+		inventory = append(inventory, types.InventoryItem{
+			Type:     types.InventoryItemAidKit,
+			Quantity: int32(config.WallChestAidKitMinQuantity + rand.Intn(config.WallChestAidKitMaxQuantity-config.WallChestAidKitMinQuantity+1)),
+		})
+	}
+	if rand.Float64() < config.WallChestGogglesProbability {
+		inventory = append(inventory, types.InventoryItem{Type: types.InventoryItemGoggles, Quantity: 1})
+	}
+	if rand.Float64() < config.WallChestAmmoProbability {
+		ammoItems := []types.InventoryItemID{types.InventoryItemShotgunAmmo, types.InventoryItemRocket, types.InventoryItemRailgunAmmo}
+		inventory = append(inventory, types.InventoryItem{
+			Type:     ammoItems[rand.Intn(len(ammoItems))],
+			Quantity: int32(config.WallChestAmmoMinQuantity + rand.Intn(config.WallChestAmmoMaxQuantity-config.WallChestAmmoMinQuantity+1)),
+		})
+	}
+	if rand.Float64() < config.WallChestWeaponProbability {
+		weaponItems := []types.InventoryItemID{types.InventoryItemShotgun, types.InventoryItemRocketLauncher, types.InventoryItemRailgun}
+		inventory = append(inventory, types.InventoryItem{Type: weaponItems[rand.Intn(len(weaponItems))], Quantity: 1})
+	}
+	return inventory
 }
 
 func (e *Engine) pickSpawnPoint(playerPos *types.Vector2) *types.Vector2 {
@@ -422,27 +621,19 @@ func (e *Engine) pickSpawnPoint(playerPos *types.Vector2) *types.Vector2 {
 }
 
 // createEnemyForWall creates an enemy that patrols along a wall
-func (e *Engine) createEnemyForWall(wall *types.Wall) *types.Enemy {
+// on the given side of it (1 or -1)
+func (e *Engine) createEnemyForWall(wall *types.Wall, enemyType string, wallSide float64) *types.Enemy {
 	enemyID := uuid.New().String()
-	enemyType := types.EnemyTypeSoldier
-	enemyLives := config.EnemySoldierLives
 	enemySize := config.EnemySoldierSize
-	if rand.Float64() < config.EnemyLieutenantChance {
-		enemyType = types.EnemyTypeLieutenant
+	enemyLives := config.EnemySoldierLives
+	switch enemyType {
+	case types.EnemyTypeLieutenant:
 		enemyLives = config.EnemyLieutenantLives
-	}
-
-	if rand.Float64() < config.EnemySniperChance {
-		enemyType = types.EnemyTypeSniper
+	case types.EnemyTypeSniper:
 		enemyLives = config.EnemySniperLives
 	}
 
-	// Spawn enemy on one side of the wall
 	var x, y float64
-	wallSide := 1.0
-	if rand.Float64() < 0.5 {
-		wallSide = -1.0
-	}
 
 	if wall.Orientation == "vertical" {
 		x = wall.Position.X - wallSide*(wall.Width/2+enemySize/2)
@@ -1102,7 +1293,7 @@ func (e *Engine) Update() {
 				if enemy.Type == types.EnemyTypeSniper {
 					if closestVisiblePlayer.ID != enemy.LastAimedAtPlayerID {
 						// Reset shoot delay when switching targets
-						enemy.ShootDelay = config.EnemySniperShootDelay
+						enemy.ShootDelay = e.enemyShootDelay(config.EnemySniperShootDelay)
 						enemy.LastShotAtPlayerID = ""
 						enemy.LastAimedAtPlayerID = closestVisiblePlayer.ID
 					}
@@ -1140,7 +1331,7 @@ func (e *Engine) Update() {
 						e.applyBulletDamage(bullet, &types.Vector2{X: bullet.Position.X + bullet.Velocity.X, Y: bullet.Position.Y + bullet.Velocity.Y})
 					}
 
-					enemy.ShootDelay = types.EnemyShootDelayByType[enemy.Type]
+					enemy.ShootDelay = e.enemyShootDelay(types.EnemyShootDelayByType[enemy.Type])
 				}
 			}
 
@@ -1527,9 +1718,7 @@ func (e *Engine) applyBulletDamage(bullet *types.Bullet, newPosition *types.Vect
 
 				// Award money to shooter
 				if shooter, exists := e.state.players[bullet.OwnerID]; exists {
-					shooter.Money += config.PlayerReward
-					shooter.Score += config.PlayerReward
-					shooter.Kills++
+					e.awardKill(shooter, config.PlayerReward)
 				}
 			} else {
 				player.InvulnerableTimer = config.PlayerInvulnerabilityTime
@@ -1569,10 +1758,7 @@ func (e *Engine) applyBulletDamage(bullet *types.Bullet, newPosition *types.Vect
 						// Award money to shooter
 						if !bullet.IsEnemy {
 							if shooter, exists := e.state.players[bullet.OwnerID]; exists {
-								reward := enemy.Reward()
-								shooter.Money += int(reward)
-								shooter.Score += int(reward)
-								shooter.Kills++
+								e.awardKill(shooter, enemy.Reward())
 							}
 						}
 
@@ -1765,9 +1951,7 @@ func (e *Engine) applyRocketExplosionDamage(explosionCenter *types.Vector2, hitO
 				player.Die()
 
 				if shooterExists && shooter.ID != player.ID {
-					shooter.Money += config.PlayerReward
-					shooter.Score += config.PlayerReward
-					shooter.Kills++
+					e.awardKill(shooter, config.PlayerReward)
 				}
 			} else {
 				player.InvulnerableTimer = config.PlayerInvulnerabilityTime
@@ -1795,10 +1979,7 @@ func (e *Engine) applyRocketExplosionDamageToEnemies(enemies map[string]*types.E
 				}
 
 				if shooterExists {
-					reward := enemy.Reward()
-					shooter.Money += int(reward)
-					shooter.Score += int(reward)
-					shooter.Kills++
+					e.awardKill(shooter, enemy.Reward())
 				}
 
 				// Maybe spawn bonus
@@ -1808,16 +1989,27 @@ func (e *Engine) applyRocketExplosionDamageToEnemies(enemies map[string]*types.E
 	}
 }
 
+// awardKill pays a kill's reward (an enemy's or another player's). Money and
+// score scale separately: money by the difficulty's money setting, score by
+// its danger rating, so generous difficulties don't inflate the leaderboard.
+func (e *Engine) awardKill(shooter *types.Player, hardReward float64) {
+	shooter.Money += int(math.Round(hardReward * float64(e.difficulty.MoneyPct) / 100))
+	shooter.Score += int(math.Round(hardReward * e.difficulty.ScoreMultiplier))
+	shooter.Kills++
+}
+
 // spawnBonus creates a bonus at the given position
 func (e *Engine) spawnBonus(enemy *types.Enemy) {
-	// Maybe spawn bonus
+	// Maybe spawn bonus. The difficulty scales the soldier and lieutenant
+	// drop chances; above 100% they always drop.
+	dropScale := float64(e.difficulty.DropChancePct) / 100
 	switch enemy.Type {
 	case types.EnemyTypeSoldier:
-		if rand.Float64() >= config.EnemySoldierDropChance {
+		if rand.Float64() >= config.EnemySoldierDropChance*dropScale {
 			return
 		}
 	case types.EnemyTypeLieutenant:
-		if rand.Float64() >= config.EnemyLieutenantDropChance {
+		if rand.Float64() >= config.EnemyLieutenantDropChance*dropScale {
 			return
 		}
 	}

@@ -2,6 +2,8 @@
 
 The world is guarded by four kinds of enemies. Guards (soldiers, lieutenants and snipers) are posted next to walls. Every area also has one tower.
 
+> These are the numbers for **Hard**. The session's [difficulty](getting-started.md#difficulty) changes how many enemies of each kind there are, how fast they fire, the money they're worth and how often soldiers and lieutenants drop something. Peaceful sessions have no enemies at all.
+
 ## Overview
 
 | Enemy | Lives | Reward | Weapon | Fires every | Moves? | Drops |

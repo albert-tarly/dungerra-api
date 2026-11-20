@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Per-session **difficulty**: Peaceful, Easy, Hard, Nightmare or Custom. Sessions store the resolved settings: guards per wall by type, towers per chunk, money per kill, drop chance, wall-chest share, enemy fire rate, player lives and a derived score multiplier. Sessions created earlier play as Hard, which is unchanged.
+- Wall chests: on Peaceful (25% of walls), and on Custom if enabled. Each holds 20–100 money, more the farther it is from the origin (up to ×3), plus rolled aid kits, goggles, ammo and a rare weapon.
+- Custom difficulty above 100% can put two guards on one wall (on opposite sides) and two towers in one chunk.
+- SQLite migration 2 adds `game_sessions.difficulty`. MongoDB stores it as an optional `difficulty` field.
+
+### Changed
+
+- **Breaking:** `POST /api/v1/sessions` requires `difficulty`. Session responses include the resolved `difficulty`.
+- Kill score is the base reward times the session's score multiplier (Peaceful ×0.25, Easy ×0.45, Hard ×1, Nightmare ×1.2). Kill money is scaled separately by `money_pct`, which also covers kills of other players.
+
 ## [2.0.0] - 2026-11-20
 
 ### Added

@@ -31,8 +31,29 @@ When you create a session you choose:
 | **Max players** | How many players can be connected at the same time. Defaults to 10. |
 | **Private** | If enabled, players need a password to join |
 | **Password** | Required for private sessions |
+| **Difficulty** | Required. Can't be changed after the session is created. See below. |
 
 You become the session's **host**. Only the host can delete a session.
+
+### Difficulty
+
+Every session has a difficulty. Sessions created before difficulties existed play on **Hard**. The rest of this guide gives the numbers for Hard.
+
+| | Peaceful | Easy | Hard | Nightmare |
+| --- | --- | --- | --- | --- |
+| Soldiers and lieutenants | none | half as many | normal | 1.5× as many |
+| Snipers | none | none | normal | 1.5× as many |
+| Towers | none | none | one per area | 1.5 per area on average |
+| Enemy fire rate | – | 75% | normal | normal |
+| Your lives | 6 | 8 | 6 | 6 |
+| Money per kill (enemies and players) | ×2 | ×2 | ×1 | ×1.5 |
+| Soldier and lieutenant drop chance | – | ×2 | ×1 | ×1 |
+| Loot chests next to walls | 25% of walls | none | none | none |
+| Score per kill | ×0.25 | ×0.45 | ×1 | ×1.2 |
+
+**Custom** lets you set each of these yourself: soldiers, lieutenants, snipers and towers from 0% to 200% of Hard; money per kill (0–300%); drop chance (0–300%); wall chests (0–100% of walls); enemy fire rate (25–200%); and lives (1–12). With more than 100% of guards, some walls get a second guard on the other side. With more than 100% of towers, some areas get two.
+
+**Score per kill** depends on how dangerous the world is: how many enemies there are (soldiers count most, then lieutenants, towers and snipers), how fast they fire and how many lives you have. It ranges from ×0.25 to ×2 and never depends on the money or loot settings, so easy settings can't fill the leaderboard. A Custom session shows its score multiplier before you create it.
 
 ### Joining a session
 

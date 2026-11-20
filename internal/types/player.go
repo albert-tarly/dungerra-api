@@ -20,6 +20,7 @@ type Player struct {
 	ScreenObject
 	Username                string           `json:"username"`
 	Lives                   float32          `json:"lives"`
+	MaxLives                float32          `json:"-"` // Set from the session difficulty; 0 means config.PlayerLives
 	Score                   int              `json:"score"`
 	Money                   int              `json:"money"`
 	Kills                   int              `json:"kills"`
@@ -55,7 +56,7 @@ func (p *Player) Respawn(spawnPoint *Vector2) bool {
 	}
 
 	p.IsAlive = true
-	p.Lives = config.PlayerLives
+	p.Lives = p.MaxLivesOrDefault()
 	p.BulletsLeftByWeaponType = map[string]int32{
 		WeaponTypeBlaster: config.BlasterMaxBullets,
 	}
@@ -182,13 +183,22 @@ func (p *Player) UseAidKit() bool {
 }
 
 func (p *Player) heal(amount float64) {
-	p.Lives = float32(math.Min(float64(p.Lives)+amount, float64(config.PlayerLives)))
+	p.Lives = float32(math.Min(float64(p.Lives)+amount, float64(p.MaxLivesOrDefault())))
+}
+
+// MaxLivesOrDefault is the most lives the player can have: what they spawn
+// with and what aid kits heal up to.
+func (p *Player) MaxLivesOrDefault() float32 {
+	if p.MaxLives > 0 {
+		return p.MaxLives
+	}
+	return config.PlayerLives
 }
 
 // applyPickedUpAidKits uses picked-up aid kits straight away while the player
 // is below full health and returns how many are left over for the inventory.
 func (p *Player) applyPickedUpAidKits(quantity int32) int32 {
-	for quantity > 0 && p.Lives < float32(config.PlayerLives) {
+	for quantity > 0 && p.Lives < p.MaxLivesOrDefault() {
 		p.heal(config.AidKitHealAmount)
 		quantity--
 	}

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/albert-tarly/dungerra-api/internal/config"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -176,8 +177,26 @@ func testSessions(t *testing.T, s Store) {
 		t.Fatal("world map not round-tripped")
 	}
 
+	// A session without a difficulty (created before difficulties) stays
+	// without one and plays as Hard; a stored difficulty round-trips intact.
+	if got.Difficulty != nil || got.EffectiveDifficulty().Preset != config.DifficultyHard {
+		t.Fatalf("legacy session difficulty: %+v", got.Difficulty)
+	}
+	easy, _ := config.DifficultyPreset(config.DifficultyEasy)
+	withDifficulty := &GameSession{Name: "easy", HostID: primitive.NewObjectID(), MaxPlayers: 4, Difficulty: &easy}
+	if err := sessions.Create(ctx, withDifficulty); err != nil {
+		t.Fatalf("Create with difficulty: %v", err)
+	}
+	if err := sessions.Update(ctx, withDifficulty); err != nil {
+		t.Fatalf("Update with difficulty: %v", err)
+	}
+	gotDifficulty, err := sessions.FindByID(ctx, withDifficulty.ID)
+	if err != nil || gotDifficulty.Difficulty == nil || *gotDifficulty.Difficulty != easy {
+		t.Fatalf("difficulty not round-tripped: %+v (err=%v)", gotDifficulty, err)
+	}
+
 	active, err := sessions.FindActiveSessions(ctx)
-	if err != nil || !containsSession(active, sess.ID) {
+	if err != nil || !containsSession(active, sess.ID) || !containsSession(active, withDifficulty.ID) {
 		t.Fatalf("FindActiveSessions: missing created session (err=%v)", err)
 	}
 
