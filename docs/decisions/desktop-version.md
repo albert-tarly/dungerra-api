@@ -139,7 +139,12 @@ Implemented in [albert-tarly/dungerra-desktop](https://github.com/albert-tarly/d
 - **Sidecar launch:** the sidecar is started with `std::process` rather than the Tauri shell plugin, which has no way to close a child's stdin. The binary sits next to the app executable.
 - **Data folder:** Tauri's app data directory, named after the app identifier: `%APPDATA%\io.github.albert-tarly.dungerra` on Windows, `~/Library/Application Support/io.github.albert-tarly.dungerra` on macOS. The server's latest stderr is kept in `server.log` there.
 - **Solo port:** solo prefers fixed port **47823** and falls back to any free port. The client stores its sign-in per origin, so a random port would sign the player out on every launch.
-- **Navigation:** the launcher opens game pages through a Rust command (`open_game`). The game menu has **Back to Launcher** (stops the server) and **Toggle Full Screen**.
+- **Navigation:** the launcher opens game pages through a Rust command (`open_game`), which adds `?launcher=<launcher URL>`.
+  - **Main Menu button:** the client's desktop build stores that URL for the window's lifetime, accepting only the app's own `tauri.localhost` origins. It then shows a **Main Menu** button on its non-game screens and in the in-game menu. Browsers (LAN guests, the web build) get no parameter and no button.
+  - **Native menu:** **Game → Back to Launcher** and **Toggle Full Screen**.
+  - **What the launcher stops:** returning to the launcher stops a solo server but leaves a hosted game running, and the launcher shows it again (`server_status`).
+  - **Launcher URL timing:** the app records the launcher URL when the launcher calls `app_info`. At startup the window's URL is still `about:blank`.
+- **Shared look and offline fonts:** the client and the launcher bundle the Texturina and Rubik Distressed fonts (OFL) instead of loading Google Fonts, so text renders the same offline. The launcher reuses the client's colours, buttons and panels.
 - **Windows Firewall:** no firewall rule is added, because the per-user installer has no admin rights. On a network marked Public, LAN guests (and even the host's own LAN IP) are blocked until the player allows `dungerra-server` in the Windows prompt.
 - **Verified on Windows** by driving the built app through WebView2 DevTools:
   - the launcher, solo play and the in-game render

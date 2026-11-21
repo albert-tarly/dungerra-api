@@ -28,7 +28,12 @@ The app opens on the launcher, which offers three choices:
 
 After you choose, you continue as in the online game: sign in, then create or join a session in the session list (see [Getting Started](getting-started.md)).
 
-To return to the launcher, use **Game → Back to Launcher** in the app's menu bar. This also stops a game you are hosting, so anyone connected to it is disconnected. Your world is saved first. **Game → Toggle Full Screen** switches full screen on and off.
+To return to the launcher:
+- choose **Main Menu** at the top left of the sign-in, game list and instructions screens
+- choose **Main Menu** in the game menu during play
+- or use **Game → Back to Launcher** in the app's menu bar
+
+A solo game is saved and stopped. A game you host **keeps running** for the other players. The launcher shows its address again, and **Stop Hosting** ends it. **Game → Toggle Full Screen** in the menu bar switches full screen on and off.
 
 ## Accounts in the desktop app
 
@@ -50,7 +55,7 @@ Solo play still runs in real time. The game does **not pause** when you open the
 2. Choose **Start hosting**. The launcher shows the address others use to join, for example `192.168.1.5:8080`.
 3. Share that address with the other players, then choose **Enter game** to play yourself.
 
-While you host, your computer must stay on and the app must stay open. **Stop hosting**, or quitting the app, disconnects everyone and saves the world.
+While you host, your computer must stay on and the app must stay open. Going back to the launcher keeps the game running. **Stop Hosting**, or quitting the app, disconnects everyone and saves the world.
 
 Players without the app can join too. They type the address into a web browser on the same network, for example `http://192.168.1.5:8080`.
 
